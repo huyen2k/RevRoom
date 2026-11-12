@@ -1,0 +1,115 @@
+REVROOM - GIAI THICH CAU TRUC FILE VA MODULE
+============================================================
+
+1. MUC TIEU TO CHUC
+
+Du an duoc chia thanh ba tang:
+- shared: cac thanh phan dung chung cho moi chien luoc.
+- strategy-a, strategy-b, strategy-c: logic rieng cua tung chien luoc.
+- UI: hien thi mo phong, ton kho, protection level, lich gia va Monte Carlo.
+
+Moi chien luoc co the duoc doc, kiem thu va phat trien doc lap. Simulation tong hop chi lam nhiem vu dieu phoi, khong chua toan bo thuat toan cua A/B/C.
+
+2. CAC FILE MODEL DUNG CHUNG
+
+src/model/types.ts
+- Dinh nghia Config, Customer, Day, Transaction, State, Policy.
+- Dinh nghia tham so mac dinh, ten chien luoc va ham validate.
+- Day la ket qua mot ngay cua mot chien luoc; State luu lich su 30 ngay cua A/B/C.
+
+src/model/shared/customerGenerator.ts
+- Sinh lich khach 30 ngay.
+- Ho tro Poisson va Normal approximation.
+- Tao WTP theo phan khuc, booking curve va thu tu khach den.
+- Dung PRNG Mulberry32 de cung seed + cung cau hinh tao cung du lieu.
+- CustomerGenerator co generate(), getSchedule(), allCustomers(), dailySummary().
+
+src/model/demand.ts
+- Cung cap remainingForecast() cho EMSR-b.
+- Re-export API customer generator de giu tuong thich voi cac file cu.
+
+src/model/shared/statistics.ts
+- Tinh mean, median, sample standard deviation, min, max va CI 95% cua mean.
+- quantile() tinh phan vi bang noi suy tuyen tinh.
+
+src/model/shared/monteCarlo.ts
+- Chay nhieu seed lien tiep.
+- Trong moi seed, A/B/C dung chung mot tap khach (paired comparison).
+- Tong hop thong ke tung chien luoc va so sanh hieu so theo cap.
+- Xuat CSV chi tiet tung seed.
+
+3. CHIEN LUOC A - FCFS
+
+src/model/strategy-a/fcfs.ts
+- simulateFcfsDay() xu ly mot ngay theo FCFS.
+- Kiem tra WTP truoc, sau do kiem tra ton kho.
+- Khach du kha nang chi tra duoc chap nhan neu con phong.
+- Khong tu choi khach de danh phong cho phan khuc gia cao hon.
+- Protection level luon bang 0.
+
+4. CHIEN LUOC B - EMSR-b
+
+src/model/strategy-b/emsrB.ts
+- poissonQuantile(), normalQuantile(), demandQuantile(): tinh phan vi nhu cau.
+- emsrB(): tinh hai protection level long nhau tu cac lop gia cao hon.
+- Mang gia va nhu cau duoc sap xep tu thap den cao.
+
+src/model/strategy-b/simulation.ts
+- simulateEmsrDay(): mo phong mot ngay voi gia co dinh va protection level.
+- Khach phan khuc gia thap co the bi tu choi de bao ve ton kho cho phan khuc gia cao.
+
+5. CHIEN LUOC C - DYNAMIC PRICING + EMSR-b
+
+src/model/strategy-c/dynamicPricing.ts
+- calculateDynamicPrices(): cap nhat he so va ba muc gia tai dau moi ngay.
+- Gia duoc gioi han boi min/max va lam tron den 10.000 dong.
+
+src/model/strategy-c/simulation.ts
+- simulateDynamicEmsrDay(): tinh gia dong truoc, sau do tinh lai EMSR-b.
+- Gia giu nguyen trong ca ngay; ngay sau moi cap nhat.
+
+6. DIEU PHOI VA GIAO DIEN
+
+src/model/simulation.ts
+- initial(): tao State rong.
+- policyDay(): chuyen mot ngay den module A/B/C tuong ung.
+- step(): cap nhat mot ngay cho ca ba chien luoc.
+- run(): chay tron 30 ngay.
+
+src/model/metrics.ts
+- KPI mot ngay, CSV ket qua mot lan mo phong va API Monte Carlo tuong thich.
+
+src/App.tsx
+- Giao dien React: dashboard, animation khach, ton kho, Monte Carlo.
+- Hien thi protection level cua B/C theo ngay.
+- Bang lich gia dong va bang giao dich.
+
+src/Method.tsx
+- Noi dung giai thich mo hinh trong giao dien.
+
+src/style.css
+- Giao dien va responsive layout.
+
+6. TEST
+
+tests/model.test.ts: kiem thu tong hop, seed, toan ven giao dich, EMSR-b, dynamic pricing, CSV va Monte Carlo.
+tests/strategy-a/fcfs.test.ts: kiem thu FCFS doc lap.
+tests/strategy-b/emsr-b.test.ts: kiem thu EMSR-b va mo phong B.
+tests/strategy-c/dynamic-pricing.test.ts: kiem thu tinh gia va mo phong C.
+
+tests/ui.spec.ts: kiem thu giao dien bang Playwright (neu cau hinh browser da duoc cai dat).
+
+7. CAC FILE TUONG THICH
+
+src/model/customerGenerator.ts va src/model/emsr.ts la cac entry point re-export de giu import path cu. Code chinh nam trong shared/customerGenerator.ts va strategy-b/emsrB.ts.
+
+8. LUONG DU LIEU
+
+Config + Seed
+  -> CustomerGenerator
+  -> CustomerSchedule 30 ngay
+  -> Strategy A / Strategy B / Strategy C (moi chien luoc co kho 100 phong rieng)
+  -> State / histories
+  -> KPI, chart, room grid, transaction log, CSV
+
+Monte Carlo lap lai luong tren voi nhieu seed. Trong moi seed, A/B/C nhan cung mot CustomerSchedule. Day la thiet ke paired experiment de giam nhieu do khac biet giua cac tap khach.

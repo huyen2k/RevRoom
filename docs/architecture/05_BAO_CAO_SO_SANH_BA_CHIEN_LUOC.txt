@@ -1,0 +1,72 @@
+BAO CAO SO SANH HIEU QUA BA CHIEN LUOC REVROOM
+============================================================
+
+1. CAU HOI THU NGHIEM
+
+- FCFS co ban het phong som va bo lo doanh thu tu phan khuc gia cao khong?
+- EMSR-b co tang doanh thu nhờ bao ve ton kho khong?
+- Dynamic Pricing + EMSR-b co cai thien doanh thu so voi gia co dinh khong?
+- Muc cai thien co on dinh qua nhieu kich ban nhu cau khong?
+
+2. CAC CHIEN LUOC
+
+A - FCFS: gia co dinh, khong bao ve ton kho.
+B - EMSR-b: gia co dinh, hai protection level long nhau.
+C - Dynamic Pricing + EMSR-b: gia cap nhat dau ngay va protection level tinh lai.
+
+3. THIET KE THU NGHIEM
+
+Loai thiet ke: paired Monte Carlo.
+Don vi lap: mot seed / mot thi truong nhu cau.
+Trong moi seed: cung CustomerSchedule duoc chay tren ca A, B, C.
+Chi tieu chinh: doanh thu cuoi ngay 30.
+Chi tieu phu: so phong ban, occupancy, ADR, RevPAR, protection level va tu choi theo ly do.
+
+4. THONG SO CAN GHI
+
+- So phong: 100.
+- Cua so booking: 30 ngay.
+- Seed bat dau va so lan lap.
+- Phan phoi: Poisson hoac Normal approximation.
+- Intensity va nhu cau theo phan khuc.
+- Gia co so theo phan khuc.
+- k, min multiplier, max multiplier cua C.
+- Mean, median, SD, min, max, CI 95% cua doanh thu.
+- Paired difference B-A, C-A, C-B.
+- Win rate va tie rate cua tung cap.
+
+5. BANG KET QUA
+
+Dien ket qua truc tiep tu tab Monte Carlo hoac CSV sau khi chay tren may cua nhom. Khong dien so lieu gia dinh vao bao cao.
+
+So luot: ____________________
+Seed bat dau: ________________
+Distribution: ________________
+Intensity: ___________________
+
+Chien luoc | Revenue mean | Median | SD | CI 95% | Occupancy mean | Win rate
+A          |              |        |    |       |                |
+B          |              |        |    |       |                |
+C          |              |        |    |       |                |
+
+Cap so sanh | Paired mean difference | SD | CI 95% | Win rate | Tie rate
+B - A      |                        |    |        |          |
+C - A      |                        |    |        |          |
+C - B      |                        |    |        |          |
+
+6. HUONG DAN DIEN GIAI
+
+- Mean cao hon: doanh thu ky vong cao hon tren cac kich ban da chay.
+- SD cao: ket qua bien dong manh hon giua cac kich ban.
+- CI 95% hep: uoc luong mean chinh xac hon voi bo kich ban hien tai.
+- Paired difference duong: chien luoc ben trai tot hon ben phai tren cung thi truong.
+- Win rate cao: chien luoc thuong dat doanh thu cao hon trong cac seed.
+- Occupancy cao khong dong nghia doanh thu cao; can xem dong thoi ADR va RevPAR.
+
+7. HAN CHE VA TINH HOP LE
+
+Ket qua chi co y nghia trong pham vi gia dinh mo hinh. WTP dang Uniform tu 0.7 den 1.6 lan gia tham chieu; booking curve la dang quy uoc; nhu cau khong duoc hieu chinh bang du lieu dat phong thuc te. Dynamic pricing la heuristic. Can phan tich do nhay theo intensity, distribution, gia, nhu cau va tham so k/min/max truoc khi dua ra ket luan tong quat.
+
+8. KET LUAN
+
+Khong co chien luoc nao duoc gan nhan tot nhat truoc khi chay thu nghiem. Ket luan phai dua tren paired Monte Carlo, do lon hieu so, CI 95%, win rate va cac chi tieu van hanh. Luu CSV de dam bao ket qua co the tai lap va kiem tra doc lap.

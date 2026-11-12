@@ -1,0 +1,43 @@
+HUONG DAN CAI DAT, CHAY VA KIEM THU REVROOM
+============================================================
+
+YEU CAU
+- Node.js 20+ khuyen nghi.
+- npm.
+
+CAI DAT
+1. Giai nen ZIP.
+2. Mo terminal tai thu muc revRoom.
+3. Chay: npm install
+
+CHAY WEB
+npm run dev
+Mo dia chi Vite hien thi tren terminal.
+
+KIEM THU
+npm test
+
+BUILD SAN PHAM
+npm run build
+
+CAC NHOM TEST
+- tests/model.test.ts: tinh nhat quan cua mo hinh tong the, seed, hai phan phoi, EMSR-b, dynamic pricing va Monte Carlo.
+- tests/strategy-a/fcfs.test.ts: logic FCFS doc lap.
+- tests/strategy-b/emsr-b.test.ts: tinh protection va mo phong B.
+- tests/strategy-c/dynamic-pricing.test.ts: tinh gia dong va mo phong C.
+- tests/ui.spec.ts: UI smoke test neu Playwright browser da duoc cai dat.
+
+MONTE CARLO TREN WEB
+1. Chon Seed trong phan Cau hinh va nhan Ap dung.
+2. Mo tab Monte Carlo.
+3. Chon 100, 250, 500, 1.000 hoac 5.000 luot.
+4. Bam Chay seed ghep cap.
+5. Doc bang thong ke tong hop va bang so sanh cap.
+6. Bang chi tiet hien toi da 100 seed dau tien.
+7. Bam Tai CSV tung luot de xuat day du cac seed.
+
+TAI LAP
+Ghi lai seed bat dau, so luot, intensity, prices, demands, distribution, capacity, k, min, max. Cung cau hinh va seed se tao lai cung tap khach. Monte Carlo dung cac seed lien tiep va co wrap theo gioi han PRNG.
+
+GHI CHU KIEM THU
+Can chay npm install thanh cong truoc khi chay npm test va npm run build. Neu moi truong khong tai duoc dependency, khong the ket luan build UI da pass; can chay lai tren may co ket noi npm.

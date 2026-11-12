@@ -1,0 +1,79 @@
+MO HINH NHU CAU KHACH HANG VA CHIEN LUOC FCFS
+============================================================
+
+1. PHAM VI MO PHONG
+
+- Mot khach san co 100 phong cung mot loai phong.
+- Mot ngay luu tru co 30 ngay nhan dat phong.
+- Ba phan khuc: tourist, standard, business.
+- Ba muc gia tham chieu tang dan.
+- Moi khach co willingness-to-pay (WTP), phan khuc va ngay den.
+- Khong mo hinh hoa huy phong, no-show, overbooking va nhieu dem luu tru.
+
+2. BOOKING CURVE
+
+Tong nhu cau ky vong cua phan khuc s duoc phan bo vao 30 ngay theo trong so w[s,d]. Tong trong so cua moi phan khuc bang 1.
+
+Tourist: trong so giam dan theo thoi gian, dai dien nhom dat som.
+Standard: trong so dang tam giac, tap trung o giua cua so dat.
+Business: trong so tang dan, dai dien nhom dat muon.
+
+So khach ky vong trong ngay d:
+mu[s,d] = demand[s] * intensity * w[s,d]
+
+3. PHAN PHOI SO KHACH
+
+Poisson:
+N[s,d] ~ Poisson(mu[s,d])
+
+Normal approximation:
+N[s,d] = max(0, round(mu[s,d] + sqrt(mu[s,d]) * Z)), Z ~ N(0,1).
+
+Normal trong phan mem la xap xi Gaussian cho bien dem, khong phai phan phoi chinh xac tren so nguyen khong am. Gia tri duoc lam tron va cat tai 0.
+
+4. WILLINGNESS TO PAY
+
+WTP ~ Uniform(0.7 * referencePrice, 1.6 * referencePrice).
+
+Khach mua neu WTP >= gia chao cua phan khuc. WTP duoc sinh mot lan va giu nguyen khi so sanh A/B/C.
+
+5. SEED VA TAI LAP
+
+PRNG Mulberry32 khoi tao tu Config.seed. Generator tao so khach, WTP va thu tu den theo mot luong so gia ngau nhien co the tai lap.
+Cung seed + cung cau hinh => cung CustomerSchedule. Seed khac thuong tao mot kich ban khach khac.
+A/B/C phai su dung chung lich khach trong cung mot lan chay; khong duoc goi generator rieng cho tung chien luoc.
+
+6. FCFS - FIRST COME, FIRST SERVED
+
+Voi tung khach theo thu tu den:
+1) Xac dinh gia cua phan khuc.
+2) Neu WTP < gia, tu choi vi gia (price rejection).
+3) Neu het phong, tu choi vi full.
+4) Nguoc lai, chap nhan dat phong, tang sold va doanh thu.
+
+FCFS khong co protection level. Khach du kha nang chi tra duoc chap nhan neu con phong, bat ke phan khuc gia cao co the den sau.
+
+7. UU DIEM CUA FCFS
+
+- Don gian, de giai thich va de trien khai.
+- Toc do tinh toan nhanh, it tham so.
+- Minh bach: ket qua phu thuoc vao thu tu den, gia va WTP.
+- La baseline tot de do muc cai thien cua inventory control.
+- Khong can uoc luong phan phoi nhu cau tuong lai de ra quyet dinh chap nhan.
+
+8. NHUOC DIEM CUA FCFS
+
+- Khong tinh den co hoi ban phong cho phan khuc gia cao den muon.
+- Co the ban het phong som cho phan khuc gia thap.
+- Khong phan bo ton kho theo gia tri bien cua nhu cau.
+- Khong phan ung voi booking pace hoac thay doi gia.
+- Ket qua nhay voi thu tu den; neu booking curve khong duoc mo hinh hoa hop ly, baseline co the bi lech.
+
+9. CAC CHI SO
+
+Revenue = tong gia ban cua cac booking duoc chap nhan.
+Occupancy = sold / capacity * 100%.
+ADR = revenue / sold.
+RevPAR = revenue / capacity.
+
+FCFS la duong co so de so sanh voi B (inventory protection) va C (inventory protection + dynamic pricing).

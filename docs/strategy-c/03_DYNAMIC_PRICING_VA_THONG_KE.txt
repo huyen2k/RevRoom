@@ -1,0 +1,62 @@
+CHIẾN LƯỢC C - DYNAMIC PRICING + EMSR-b
+============================================================
+
+1. MUC TIEU
+
+Chien luoc C ket hop hai quyet dinh:
+- Dieu chinh gia ban theo booking pace vao dau moi ngay.
+- Tinh lai protection level EMSR-b theo muc gia moi.
+
+2. HE SO GIA
+
+Tai dau ngay d, soldAtStart la so phong da ban truoc khi ngay d bat dau.
+
+m(d) = clamp(1 + k * (soldAtStart / capacity - (d - 1) / 30), min, max)
+
+Gia moi cua phan khuc s:
+p_s(d) = round(p_s(base) * m(d) / 10000) * 10000
+
+He so duoc gioi han trong [min, max]. Ba muc gia cung nhan mot he so. Gia giu nguyen trong ca ngay; khong cap nhat sau tung khach.
+
+3. TRINH TU MO PHONG
+
+1) Lay sold dau ngay tu ngay truoc.
+2) Tinh he so m(d).
+3) Tinh ba muc gia moi.
+4) Du bao nhu cau con lai voi gia moi.
+5) Chay EMSR-b de tinh protection level.
+6) Xu ly tung khach theo thu tu den va gia/protection level cua ngay.
+
+4. FILE LIEN QUAN
+
+src/model/strategy-c/dynamicPricing.ts: calculateDynamicPrices().
+src/model/strategy-c/simulation.ts: simulateDynamicEmsrDay().
+tests/strategy-c/dynamic-pricing.test.ts: kiem thu gioi han he so, rounding va ket qua dau ngay.
+
+5. BANG GIA THEO NGAY
+
+Dashboard hien thi he so gia, gia tourist/standard/business, sold dau ngay va hai protection level. Dung bang nay de giai thich tai sao gia C khac gia co so va thay doi qua thoi gian.
+
+6. GIOI HAN
+
+Day la heuristic booking-pace pricing, khong phai toi uu hoa gia toan cuc. He so gia dung chung cho ba phan khuc, khong co elasticity rieng tung segment, khong co gia doi thu va khong co chi phi bien.
+
+7. THIET KE MONTE CARLO
+
+Moi lan chay Monte Carlo co mot seed. Cung seed, generator tao mot thi truong; A/B/C cung nhan CustomerSchedule do. Qua nhieu seed, ta thu duoc phan phoi ket qua thay vi chi mot ket qua ngau nhien.
+
+Thong ke hien thi:
+- Mean: doanh thu trung binh.
+- Median: doanh thu trung vi.
+- SD: do lech chuan mau.
+- Min/Max: gia tri nho nhat/lon nhat.
+- CI 95%: mean +/- 1.96 * SD / sqrt(n), xap xi khi n du lon.
+- Win rate: ty le seed chien luoc co doanh thu cao nhat; dong thang cung duoc tinh la win.
+- Paired difference: doanh thu cua chien luoc ben trai tru ben phai tren cung seed.
+- Pair win rate: ty le seed ma hieu so duong; tie rate: ty le hieu so bang 0.
+
+8. DOC KET QUA
+
+Neu CI 95% cua hieu so paired khong cat 0, day la dau hieu ve khac biet trung binh trong bo kich ban mo phong. Khong nen goi day la y nghia thong ke tuyet doi neu cac gia dinh nhu booking curve va WTP chua duoc hieu chinh bang du lieu thuc.
+
+CSV Monte Carlo luu tung seed, doanh thu va so phong ban cua A/B/C de co the tai phan tich bang Python, Excel hoac R.

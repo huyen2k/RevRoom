@@ -1,0 +1,65 @@
+EMSR-b - THUAT TOAN BAO VE TON KHO
+============================================================
+
+1. BAI TOAN
+
+Khach san co nhieu lop gia. Neu chap nhan qua nhieu booking gia thap, khach san co the khong con phong khi nhu cau gia cao den sau. EMSR-b tinh so phong can bao ve cho cac lop gia cao hon.
+
+2. KY HIEU
+
+p1 < p2 < p3: gia cac phan khuc tu thap den cao.
+mu1, mu2, mu3: nhu cau du bao con lai tu ngay hien tai den het cua so dat.
+C: so phong con lai.
+
+3. GHEP NHOM LOP GIA CAO
+
+Voi moi lop gia thap i, gom nhu cau cac lop gia cao hon:
+mu(i+1:n) = sum(mu_j), j > i
+
+Gia binh quan co trong so nhu cau:
+r(i+1:n) = sum(p_j * mu_j) / sum(mu_j)
+
+Critical fractile:
+q_i = max(0, min(1, 1 - p_i / r(i+1:n)))
+
+Protection level:
+Y_i = Quantile(Demand(i+1:n), q_i), gioi han trong [0, C].
+
+Voi ba lop gia, tinh hai protection level:
+Y1 bao ve nhu cau standard + business cho tourist.
+Y2 bao ve nhu cau business cho standard.
+Y1 duoc dam bao khong nho hon Y2. Lop gia cao nhat khong can bao ve lop cao hon.
+
+4. QUANTILE
+
+Neu chon Poisson, dung Poisson quantile voi tham so la tong mean nhu cau cac lop cao hon.
+Neu chon Normal, dung xap xi voi mean = mu va variance = mu, tim phan vi bang tim kiem nhi phan.
+Day la implementation xap xi phu hop voi mo hinh hien tai; khong nen dien giai la mo hinh du bao da duoc hieu chinh tu du lieu thuc te.
+
+5. QUY TAC CHAP NHAN
+
+Khi khach lop gia i den:
+- Tu choi neu WTP < gia.
+- Tu choi neu het phong.
+- Voi lop gia thap i < 3, tu choi neu so phong con lai <= protection[i].
+- Nguoc lai chap nhan.
+
+6. FILE LIEN QUAN
+
+src/model/strategy-b/emsrB.ts: quantile va emsrB().
+src/model/strategy-b/simulation.ts: simulateEmsrDay().
+tests/strategy-b/emsr-b.test.ts: test protection lồng nhau va gia co dinh.
+
+7. BIEU DO VA KIEM TRA
+
+Dashboard hien thi protection level theo ngay cho B va C. Duong lien net la protection level 1; duong dut net la protection level 2.
+Kiem tra:
+- Y1 >= Y2 >= 0.
+- Y2 va Y1 khong vuot ton kho con lai luc dau ngay.
+- Gia cua B luon bang gia co so.
+- Moi booking duoc chap nhan phai co WTP >= gia.
+- Tong accepted + price reject + protected reject + full reject bang potential.
+
+8. DIEM CAN LUU Y
+
+EMSR-b la heuristic inventory control dua tren forecast va gia. Chat luong protection level phu thuoc vao booking curve, intensity, phan phoi va buyProbability. Ket qua mo phong la ket qua theo gia dinh dau vao, khong phai bao dam doanh thu thuc te.
