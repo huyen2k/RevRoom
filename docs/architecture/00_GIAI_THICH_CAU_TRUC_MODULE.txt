@@ -1,115 +1,58 @@
-REVROOM - GIAI THICH CAU TRUC FILE VA MODULE
-============================================================
+REVROOM RMaaS - GIẢI THÍCH CẤU TRÚC FILE VÀ KIẾN TRÚC MODULE
+====================================================================
 
-1. MUC TIEU TO CHUC
+1. MỤC TIÊU HỆ THỐNG
+--------------------
+RevRoom RMaaS (Revenue Management as a Service) là nền tảng cung cấp dịch vụ định giá và tối đa hóa doanh thu cho khách sạn dựa trên 3 chiến lược quản trị doanh thu:
+- Chiến lược A (FCFS): Giá cố định, bán tự do theo thứ tự khách đến, không bảo vệ phòng.
+- Chiến lược B (EMSR-b): Giá cố định, bảo vệ hạn mức tồn kho cho các hạng phòng giá cao.
+- Chiến lược C (Dynamic Pricing + EMSR-b): Điều chỉnh giá động hợp lý theo nhu cầu từng ngày & nhịp độ đặt phòng (Booking Pace), kết hợp bảo vệ hạn mức tồn kho EMSR-b.
 
-Du an duoc chia thanh ba tang:
-- shared: cac thanh phan dung chung cho moi chien luoc.
-- strategy-a, strategy-b, strategy-c: logic rieng cua tung chien luoc.
-- UI: hien thi mo phong, ton kho, protection level, lich gia va Monte Carlo.
+Hệ thống hỗ trợ mọi quy mô phòng (Capacity) và số lượng hạng phòng tùy chỉnh (N Fare Classes), đồng thời cung cấp 2 phương pháp dự đoán và phân phối lượng khách:
+- CÁCH 1: Người dùng nhập lượng khách dự tính kết hợp chọn Thời điểm trong năm (4 mùa vụ Quý 1..Quý 4), sử dụng Phân phối Poisson phi thuần nhất (NHPP) để sinh dự đoán lượng khách và nhu cầu từng ngày.
+- CÁCH 2: Người dùng tải lên dữ liệu đặt phòng của cùng kỳ năm ngoái hoặc 3 tháng gần nhất (file CSV), hệ thống tự động phân tích lịch sử, dự đoán nhu cầu từng ngày và đề xuất phân phối giá hợp lý.
 
-Moi chien luoc co the duoc doc, kiem thu va phat trien doc lap. Simulation tong hop chi lam nhiem vu dieu phoi, khong chua toan bo thuat toan cua A/B/C.
+2. CẤU TRÚC THƯ MỤC VÀ CÁC MODULE CHÍNH
+---------------------------------------
 
-2. CAC FILE MODEL DUNG CHUNG
+A. Tầng Dịch Vụ RMaaS & Dự Báo Nhu Cầu (src/services/)
+- src/services/emsrN.ts
+  Triển khai thuật toán EMSR-b tổng quát cho N hạng phòng (calculateEmsrN). Tính toán ngưỡng bảo vệ lồng nhau (Protection Levels) và hạn mức mở bán tối đa (Booking Limits) cho từng hạng phòng.
 
-src/model/types.ts
-- Dinh nghia Config, Customer, Day, Transaction, State, Policy.
-- Dinh nghia tham so mac dinh, ten chien luoc va ham validate.
-- Day la ket qua mot ngay cua mot chien luoc; State luu lich su 30 ngay cua A/B/C.
+- src/services/demandForecastML.ts
+  Động cơ dự báo nhu cầu 30 ngày tới và đề xuất hệ số phân phối giá động hợp lý:
+  + forecastFromClasses(): Dự báo theo Quá trình Poisson phi thuần nhất (NHPP) kết hợp hệ số thời điểm trong năm (TIME_OF_YEAR_PROFILES) cho Cách 1.
+  + forecastDemandFromHistory(): Phân rã đường cong nhịp độ đặt phòng theo Lead-time (Lead-Time Pickup Decomposition) kết hợp mùa vụ thứ trong tuần (Day-of-Week Seasonality) và xu hướng OLS cho Cách 2.
 
-src/model/shared/customerGenerator.ts
-- Sinh lich khach 30 ngay.
-- Ho tro Poisson va Normal approximation.
-- Tao WTP theo phan khuc, booking curve va thu tu khach den.
-- Dung PRNG Mulberry32 de cung seed + cung cau hinh tao cung du lieu.
-- CustomerGenerator co generate(), getSchedule(), allCustomers(), dailySummary().
+- src/services/historicalDataService.ts
+  Đọc và phân tích file CSV lịch sử đặt phòng (parseHistoricalBookingCsv), trích xuất các phân khúc giá, ADR, tỷ lệ hủy phòng, Lead-time trung bình và sinh dữ liệu mẫu theo 4 mùa vụ thực tế (HOTEL_SEASONS).
 
-src/model/demand.ts
-- Cung cap remainingForecast() cho EMSR-b.
-- Re-export API customer generator de giu tuong thich voi cac file cu.
+- src/services/hotelSimulationService.ts
+  Động cơ mô phỏng trung tâm cho khách sạn có quy mô phòng và N hạng giá bất kỳ:
+  + generateHotelCustomers(): Sinh tập khách hàng 30 ngày với mức sẵn sàng chi trả (WTP) và thời điểm đến theo phân phối Poisson/Normal (có cơ chế bảo vệ bộ nhớ O(1) khi quy mô lớn).
+  + stepHotelSimulation() & runHotelSimulationFull(): Mô phỏng từng ngày hoặc trọn vẹn 30 ngày cho cả 3 chiến lược A, B, C trên cùng một tập khách hàng.
+  + evaluateHotelMonteCarlo(): Chạy kiểm định Monte Carlo ghép cặp (100 - 1.000 kịch bản) để so sánh phân phối doanh thu và tỷ lệ thắng giữa các kịch bản.
 
-src/model/shared/statistics.ts
-- Tinh mean, median, sample standard deviation, min, max va CI 95% cua mean.
-- quantile() tinh phan vi bang noi suy tuyen tinh.
+B. Tầng Mô Hình Toán Học Cơ Sở (src/model/)
+- src/model/types.ts                  : Định nghĩa kiểu dữ liệu cốt lõi.
+- src/model/shared/customerGenerator.ts: Bộ sinh số giả ngẫu nhiên Mulberry32 tái lập theo Seed.
+- src/model/shared/statistics.ts      : Tính trung bình, trung vị, độ lệch chuẩn, phân vị và khoảng tin cậy 95% CI.
+- src/model/shared/monteCarlo.ts      : Điều phối thí nghiệm ghép cặp Monte Carlo.
+- src/model/strategy-a/fcfs.ts        : Logic mô phỏng Chiến lược A (FCFS).
+- src/model/strategy-b/emsrB.ts       : Hàm phân vị Poisson/Normal (tối ưu O(1) cho lambda lớn) và tính ngưỡng bảo vệ EMSR-b.
+- src/model/strategy-c/dynamicPricing.ts: Công thức tính hệ số giá động theo Booking Pace.
 
-src/model/shared/monteCarlo.ts
-- Chay nhieu seed lien tiep.
-- Trong moi seed, A/B/C dung chung mot tap khach (paired comparison).
-- Tong hop thong ke tung chien luoc va so sanh hieu so theo cap.
-- Xuat CSV chi tiet tung seed.
+C. Tầng Giao Diện Người Dùng (src/)
+- src/PricingServiceView.tsx : Trang chính "Dịch vụ định giá" (Thiết lập khách sạn & hạng phòng, Cách 1 Poisson theo mùa vụ, Cách 2 CSV lịch sử, Biểu đồ dự báo 30 ngày, Bảng phân phối giá & hạn mức EMSR-b, Dự phóng doanh thu 3 chiến lược).
+- src/HistoricalDataView.tsx : Giao diện tải lên & phân tích dữ liệu lịch sử đặt phòng CSV / 4 mùa vụ.
+- src/StrategyAView.tsx      : Trang phân tích chuyên sâu Chiến lược A (FCFS).
+- src/StrategyBView.tsx      : Trang phân tích chuyên sâu Chiến lược B (EMSR-b).
+- src/StrategyCView.tsx      : Trang phân tích chuyên sâu Chiến lược C (Dynamic Pricing + EMSR-b).
+- src/App.tsx                : Điều hướng chính, trang "Mô phỏng & So sánh 30 ngày" và trang "Kiểm định Monte Carlo".
 
-3. CHIEN LUOC A - FCFS
-
-src/model/strategy-a/fcfs.ts
-- simulateFcfsDay() xu ly mot ngay theo FCFS.
-- Kiem tra WTP truoc, sau do kiem tra ton kho.
-- Khach du kha nang chi tra duoc chap nhan neu con phong.
-- Khong tu choi khach de danh phong cho phan khuc gia cao hon.
-- Protection level luon bang 0.
-
-4. CHIEN LUOC B - EMSR-b
-
-src/model/strategy-b/emsrB.ts
-- poissonQuantile(), normalQuantile(), demandQuantile(): tinh phan vi nhu cau.
-- emsrB(): tinh hai protection level long nhau tu cac lop gia cao hon.
-- Mang gia va nhu cau duoc sap xep tu thap den cao.
-
-src/model/strategy-b/simulation.ts
-- simulateEmsrDay(): mo phong mot ngay voi gia co dinh va protection level.
-- Khach phan khuc gia thap co the bi tu choi de bao ve ton kho cho phan khuc gia cao.
-
-5. CHIEN LUOC C - DYNAMIC PRICING + EMSR-b
-
-src/model/strategy-c/dynamicPricing.ts
-- calculateDynamicPrices(): cap nhat he so va ba muc gia tai dau moi ngay.
-- Gia duoc gioi han boi min/max va lam tron den 10.000 dong.
-
-src/model/strategy-c/simulation.ts
-- simulateDynamicEmsrDay(): tinh gia dong truoc, sau do tinh lai EMSR-b.
-- Gia giu nguyen trong ca ngay; ngay sau moi cap nhat.
-
-6. DIEU PHOI VA GIAO DIEN
-
-src/model/simulation.ts
-- initial(): tao State rong.
-- policyDay(): chuyen mot ngay den module A/B/C tuong ung.
-- step(): cap nhat mot ngay cho ca ba chien luoc.
-- run(): chay tron 30 ngay.
-
-src/model/metrics.ts
-- KPI mot ngay, CSV ket qua mot lan mo phong va API Monte Carlo tuong thich.
-
-src/App.tsx
-- Giao dien React: dashboard, animation khach, ton kho, Monte Carlo.
-- Hien thi protection level cua B/C theo ngay.
-- Bang lich gia dong va bang giao dich.
-
-src/Method.tsx
-- Noi dung giai thich mo hinh trong giao dien.
-
-src/style.css
-- Giao dien va responsive layout.
-
-6. TEST
-
-tests/model.test.ts: kiem thu tong hop, seed, toan ven giao dich, EMSR-b, dynamic pricing, CSV va Monte Carlo.
-tests/strategy-a/fcfs.test.ts: kiem thu FCFS doc lap.
-tests/strategy-b/emsr-b.test.ts: kiem thu EMSR-b va mo phong B.
-tests/strategy-c/dynamic-pricing.test.ts: kiem thu tinh gia va mo phong C.
-
-tests/ui.spec.ts: kiem thu giao dien bang Playwright (neu cau hinh browser da duoc cai dat).
-
-7. CAC FILE TUONG THICH
-
-src/model/customerGenerator.ts va src/model/emsr.ts la cac entry point re-export de giu import path cu. Code chinh nam trong shared/customerGenerator.ts va strategy-b/emsrB.ts.
-
-8. LUONG DU LIEU
-
-Config + Seed
-  -> CustomerGenerator
-  -> CustomerSchedule 30 ngay
-  -> Strategy A / Strategy B / Strategy C (moi chien luoc co kho 100 phong rieng)
-  -> State / histories
-  -> KPI, chart, room grid, transaction log, CSV
-
-Monte Carlo lap lai luong tren voi nhieu seed. Trong moi seed, A/B/C nhan cung mot CustomerSchedule. Day la thiet ke paired experiment de giam nhieu do khac biet giua cac tap khach.
+3. LUỒNG DỮ LIỆU ĐỒNG BỘ XUYÊN SUỐT
+-----------------------------------
+Thiết lập Khách sạn (Số phòng Capacity + Danh mục Hạng phòng & Giá cơ sở)
+  + Phân phối lượng khách (Mở Cách 1: Poisson theo mùa vụ HOẶC Mở Cách 2: CSV lịch sử; nếu thu gọn cả 2 thì nhu cầu về 0)
+  --> Dự báo nhu cầu từng ngày (30 ngày) & Đề xuất dải giá hợp lý + Hạn mức EMSR-b
+  --> Tự động đồng bộ sang 3 tab Chiến lược (A, B, C), tab Mô phỏng 30 ngày và tab Kiểm định Monte Carlo.

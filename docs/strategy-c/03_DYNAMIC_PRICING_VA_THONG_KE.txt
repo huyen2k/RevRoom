@@ -1,62 +1,41 @@
-CHIẾN LƯỢC C - DYNAMIC PRICING + EMSR-b
-============================================================
+CHIẾN LƯỢC C: ĐỊNH GIÁ ĐỘNG (DYNAMIC PRICING) KẾT HỢP EMSR-b & KIỂM ĐỊNH MONTE CARLO
+====================================================================================
 
-1. MUC TIEU
+1. CƠ CHẾ KÉP CỦA CHIẾN LƯỢC C (DYNAMIC PRICING + EMSR-b)
+---------------------------------------------------------
+Chiến lược C là giải pháp tối ưu hóa doanh thu toàn diện nhất trên nền tảng RevRoom RMaaS, kết hợp đồng thời hai cơ chế tại đầu mỗi ngày mở bán d (d = 1..30):
+- Cơ chế 1 (Định giá động theo nhịp độ đặt phòng - Booking Pace Dynamic Pricing): Tự động điều chỉnh hệ số giá dựa trên tốc độ lấp đầy phòng thực tế so với tiến độ mục tiêu và mùa vụ.
+- Cơ chế 2 (Tái tính toán hạn mức EMSR-b): Cập nhật lại ngưỡng bảo vệ tồn kho (Protection Levels) và hạn mức mở bán (Booking Limits) dựa trên bảng giá động mới và số phòng trống còn lại.
 
-Chien luoc C ket hop hai quyet dinh:
-- Dieu chinh gia ban theo booking pace vao dau moi ngay.
-- Tinh lai protection level EMSR-b theo muc gia moi.
+2. CÔNG THỨC ĐỊNH GIÁ ĐỘNG HỢP LÝ
+---------------------------------
+A. Trong mô phỏng vận hành theo ngày (src/services/hotelSimulationService.ts):
+Tại đầu ngày d, gọi cumulativeSold là số phòng đã bán tính đến hết ngày d - 1 trên tổng sức chứa capacity:
+- Tỷ lệ lấp đầy thực tế: actualPace = cumulativeSold / capacity
+- Tỷ lệ lấp đầy chuẩn theo thời gian: targetPace = (d - 1) / 30
+- Hệ số giá động trong ngày d:
+  priceMultiplier(d) = clamp(1 + k * (actualPace - targetPace), minMultiplier, maxMultiplier)
+- Giá chào bán của từng hạng phòng i trong ngày d (làm tròn đến 10.000 VNĐ):
+  offeredPrice_i(d) = round((p_i * priceMultiplier(d)) / 10000) * 10000
 
-2. HE SO GIA
+Khi tốc độ bán phòng nhanh hơn tiến độ mục tiêu (cầu vượt cung), hệ số giá tự động tăng lên để thu tối đa thặng dư sẵn sàng chi trả (WTP) của khách hàng. Ngược lại, khi bán chậm hơn tiến độ (mùa thấp điểm), hệ số giá hạ nhẹ về phía cận dưới (minMultiplier) để kích cầu tăng công suất phòng.
 
-Tai dau ngay d, soldAtStart la so phong da ban truoc khi ngay d bat dau.
+B. Trên bảng Tư vấn Phân phối Giá hợp lý (src/services/demandForecastML.ts):
+Dựa trên dự báo nhu cầu từng ngày (từ Cách 1 Poisson theo mùa vụ hoặc Cách 2 CSV lịch sử), hệ thống tính toán cho mỗi hạng phòng:
+- Giá kích cầu (Min Optimal Price): Áp dụng cho các ngày cầu thấp / đầu chu kỳ.
+- Giá tối ưu đề xuất (Recommended Price): Cân bằng giữa nhịp độ Booking Pace hiện tại và áp lực cầu dự báo.
+- Giá trần cao điểm (Max Optimal Price): Áp dụng cho các ngày cuối tuần (Thứ 6, Thứ 7) và 10 ngày cao điểm sát check-in.
 
-m(d) = clamp(1 + k * (soldAtStart / capacity - (d - 1) / 30), min, max)
+3. PHƯƠNG PHÁP KIỂM ĐỊNH MONTE CARLO ĐA KỊCH BẢN
+------------------------------------------------
+Để chứng minh chiến lược định giá hoạt động ổn định trước biến động ngẫu nhiên của thị trường, tab "Kiểm định Monte Carlo" cho phép sinh N kịch bản độc lập (100, 250, 500 hoặc 1.000 kịch bản ứng với các Seed liên tiếp):
 
-Gia moi cua phan khuc s:
-p_s(d) = round(p_s(base) * m(d) / 10000) * 10000
-
-He so duoc gioi han trong [min, max]. Ba muc gia cung nhan mot he so. Gia giu nguyen trong ca ngay; khong cap nhat sau tung khach.
-
-3. TRINH TU MO PHONG
-
-1) Lay sold dau ngay tu ngay truoc.
-2) Tinh he so m(d).
-3) Tinh ba muc gia moi.
-4) Du bao nhu cau con lai voi gia moi.
-5) Chay EMSR-b de tinh protection level.
-6) Xu ly tung khach theo thu tu den va gia/protection level cua ngay.
-
-4. FILE LIEN QUAN
-
-src/model/strategy-c/dynamicPricing.ts: calculateDynamicPrices().
-src/model/strategy-c/simulation.ts: simulateDynamicEmsrDay().
-tests/strategy-c/dynamic-pricing.test.ts: kiem thu gioi han he so, rounding va ket qua dau ngay.
-
-5. BANG GIA THEO NGAY
-
-Dashboard hien thi he so gia, gia tourist/standard/business, sold dau ngay va hai protection level. Dung bang nay de giai thich tai sao gia C khac gia co so va thay doi qua thoi gian.
-
-6. GIOI HAN
-
-Day la heuristic booking-pace pricing, khong phai toi uu hoa gia toan cuc. He so gia dung chung cho ba phan khuc, khong co elasticity rieng tung segment, khong co gia doi thu va khong co chi phi bien.
-
-7. THIET KE MONTE CARLO
-
-Moi lan chay Monte Carlo co mot seed. Cung seed, generator tao mot thi truong; A/B/C cung nhan CustomerSchedule do. Qua nhieu seed, ta thu duoc phan phoi ket qua thay vi chi mot ket qua ngau nhien.
-
-Thong ke hien thi:
-- Mean: doanh thu trung binh.
-- Median: doanh thu trung vi.
-- SD: do lech chuan mau.
-- Min/Max: gia tri nho nhat/lon nhat.
-- CI 95%: mean +/- 1.96 * SD / sqrt(n), xap xi khi n du lon.
-- Win rate: ty le seed chien luoc co doanh thu cao nhat; dong thang cung duoc tinh la win.
-- Paired difference: doanh thu cua chien luoc ben trai tru ben phai tren cung seed.
-- Pair win rate: ty le seed ma hieu so duong; tie rate: ty le hieu so bang 0.
-
-8. DOC KET QUA
-
-Neu CI 95% cua hieu so paired khong cat 0, day la dau hieu ve khac biet trung binh trong bo kich ban mo phong. Khong nen goi day la y nghia thong ke tuyet doi neu cac gia dinh nhu booking curve va WTP chua duoc hieu chinh bang du lieu thuc.
-
-CSV Monte Carlo luu tung seed, doanh thu va so phong ban cua A/B/C de co the tai phan tich bang Python, Excel hoac R.
+- Thiết kế ghép cặp (Paired Experiment): Trong mỗi kịch bản (seed), hệ thống sinh một tập khách hàng 30 ngày duy nhất và chạy đồng thời cả 3 chiến lược A, B, C trên chính tập khách hàng đó.
+- Phân tích theo tầng kịch bản thị trường (Scenario Tiers):
+  + Kịch bản Thấp điểm / Cầu yếu (Phân vị P10): Đánh giá khả năng kích cầu và bảo toàn doanh thu khi khách vắng.
+  + Kịch bản Cơ sở / Kỳ vọng (Trung vị P50): Kết quả trong điều kiện thị trường tiêu chuẩn.
+  + Kịch bản Cao điểm / Cầu tăng mạnh (Phân vị P90) & Đỉnh đột biến (Max Peak): Chứng minh khả năng bứt phá doanh thu khi thị trường cháy phòng.
+- Các chỉ số thống kê tổng hợp:
+  + Doanh thu trung bình (Mean), Trung vị (Median), Độ lệch chuẩn (SD), Min – Max.
+  + Khoảng tin cậy 95% cho kỳ vọng doanh thu: CI 95% = Mean +/- 1.96 * SD / sqrt(N).
+  + Đối sánh hiệu số ghép cặp (C - A, C - B, B - A), Tỷ lệ thắng (Win Rate %) và xuất toàn bộ dữ liệu kịch bản ra file CSV.

@@ -1,72 +1,47 @@
-BAO CAO SO SANH HIEU QUA BA CHIEN LUOC REVROOM
-============================================================
+BÁO CÁO ĐỐI SOÁT HIỆU QUẢ 3 CHIẾN LƯỢC QUẢN TRỊ DOANH THU (REVROOM RMaaS)
+=========================================================================
 
-1. CAU HOI THU NGHIEM
+1. MỤC TIÊU ĐỐI SOÁT
+--------------------
+Chứng minh giá trị thực tiễn của dịch vụ định giá và phân bổ tồn kho RevRoom RMaaS thông qua việc đối chiếu trực tiếp 3 chiến lược trên cùng một cấu hình khách sạn và cùng một kịch bản dòng khách đến:
+- Chiến lược A (FCFS - First-Come, First-Served): Bán tự do theo giá niêm yết cố định, không bảo vệ phòng.
+- Chiến lược B (EMSR-b - Bảo vệ hạn mức tồn kho): Giá niêm yết cố định, khóa bảo vệ phòng cho các hạng phòng cao cấp.
+- Chiến lược C (Dynamic Pricing + EMSR-b): Điều chỉnh giá động hợp lý theo nhu cầu từng ngày & nhịp độ đặt phòng (Booking Pace), kết hợp tái tính toán ngưỡng bảo vệ EMSR-b.
 
-- FCFS co ban het phong som va bo lo doanh thu tu phan khuc gia cao khong?
-- EMSR-b co tang doanh thu nhờ bao ve ton kho khong?
-- Dynamic Pricing + EMSR-b co cai thien doanh thu so voi gia co dinh khong?
-- Muc cai thien co on dinh qua nhieu kich ban nhu cau khong?
+2. CÁC CHỈ SỐ ĐÁNH GIÁ CỐT LÕI (GOLDEN RM METRICS)
+--------------------------------------------------
+- Tổng doanh thu lũy kế (Cumulative Revenue - VNĐ): Tổng doanh thu thực thu sau 30 ngày mở bán.
+- Công suất lấp đầy (Occupancy Rate - %): Tỷ lệ số phòng bán được trên tổng sức chứa (Capacity).
+- Giá bán bình quân (ADR - Average Daily Rate): Doanh thu trung bình trên mỗi phòng đã bán (Revenue / Sold).
+- Doanh thu trên mỗi phòng sẵn có (RevPAR): Chỉ số quan trọng nhất đo lường hiệu quả khai thác tài sản khách sạn (Revenue / Capacity).
+- Thất thoát do bán rẻ sớm (Displacement Loss): Doanh thu bị mất khi bán hết phòng cho khách hạng thấp từ sớm và phải từ chối khách VIP đến muộn.
 
-2. CAC CHIEN LUOC
+3. MẪU GHI NHẬN KẾT QUẢ THỰC NGHIỆM
+-----------------------------------
+Thông tin cấu hình khách sạn:
+- Tên khách sạn : ________________________________________________
+- Quy mô phòng  : ________ phòng | Số hạng phòng: ________ hạng giá
+- Phương pháp dự báo khách: [ ] Cách 1 (Poisson + Mùa vụ)   [ ] Cách 2 (CSV Lịch sử 3 tháng)
+- Tổng nhu cầu dự báo 30 ngày: ________ phòng
 
-A - FCFS: gia co dinh, khong bao ve ton kho.
-B - EMSR-b: gia co dinh, hai protection level long nhau.
-C - Dynamic Pricing + EMSR-b: gia cap nhat dau ngay va protection level tinh lai.
+A. Kết quả mô phỏng 30 ngày (1 kịch bản tiêu chuẩn):
+Chiến lược | Doanh thu (VNĐ) | Số phòng bán | Lấp đầy (%) | ADR (VNĐ) | RevPAR (VNĐ) | Tăng trưởng vs A
+A (FCFS)   |                 |              |             |           |              | Cơ sở (0%)
+B (EMSR-b) |                 |              |             |           |              |
+C (Dynamic)|                 |              |             |           |              |
 
-3. THIET KE THU NGHIEM
+B. Kết quả kiểm định Monte Carlo đa kịch bản (Paired Experiment):
+Số kịch bản đã chạy: ________ kịch bản
+Phân loại kịch bản                | Chiến lược A | Chiến lược B | Chiến lược C | Chênh lệch (C - A)
+Kịch bản Thấp điểm (P10)          |              |              |              |
+Kịch bản Cơ sở / Trung vị (P50)   |              |              |              |
+Kịch bản Cao điểm (P90)           |              |              |              |
+Trung bình toàn bộ kịch bản (Mean)|              |              |              |
 
-Loai thiet ke: paired Monte Carlo.
-Don vi lap: mot seed / mot thi truong nhu cau.
-Trong moi seed: cung CustomerSchedule duoc chay tren ca A, B, C.
-Chi tieu chinh: doanh thu cuoi ngay 30.
-Chi tieu phu: so phong ban, occupancy, ADR, RevPAR, protection level va tu choi theo ly do.
-
-4. THONG SO CAN GHI
-
-- So phong: 100.
-- Cua so booking: 30 ngay.
-- Seed bat dau va so lan lap.
-- Phan phoi: Poisson hoac Normal approximation.
-- Intensity va nhu cau theo phan khuc.
-- Gia co so theo phan khuc.
-- k, min multiplier, max multiplier cua C.
-- Mean, median, SD, min, max, CI 95% cua doanh thu.
-- Paired difference B-A, C-A, C-B.
-- Win rate va tie rate cua tung cap.
-
-5. BANG KET QUA
-
-Dien ket qua truc tiep tu tab Monte Carlo hoac CSV sau khi chay tren may cua nhom. Khong dien so lieu gia dinh vao bao cao.
-
-So luot: ____________________
-Seed bat dau: ________________
-Distribution: ________________
-Intensity: ___________________
-
-Chien luoc | Revenue mean | Median | SD | CI 95% | Occupancy mean | Win rate
-A          |              |        |    |       |                |
-B          |              |        |    |       |                |
-C          |              |        |    |       |                |
-
-Cap so sanh | Paired mean difference | SD | CI 95% | Win rate | Tie rate
-B - A      |                        |    |        |          |
-C - A      |                        |    |        |          |
-C - B      |                        |    |        |          |
-
-6. HUONG DAN DIEN GIAI
-
-- Mean cao hon: doanh thu ky vong cao hon tren cac kich ban da chay.
-- SD cao: ket qua bien dong manh hon giua cac kich ban.
-- CI 95% hep: uoc luong mean chinh xac hon voi bo kich ban hien tai.
-- Paired difference duong: chien luoc ben trai tot hon ben phai tren cung thi truong.
-- Win rate cao: chien luoc thuong dat doanh thu cao hon trong cac seed.
-- Occupancy cao khong dong nghia doanh thu cao; can xem dong thoi ADR va RevPAR.
-
-7. HAN CHE VA TINH HOP LE
-
-Ket qua chi co y nghia trong pham vi gia dinh mo hinh. WTP dang Uniform tu 0.7 den 1.6 lan gia tham chieu; booking curve la dang quy uoc; nhu cau khong duoc hieu chinh bang du lieu dat phong thuc te. Dynamic pricing la heuristic. Can phan tich do nhay theo intensity, distribution, gia, nhu cau va tham so k/min/max truoc khi dua ra ket luan tong quat.
-
-8. KET LUAN
-
-Khong co chien luoc nao duoc gan nhan tot nhat truoc khi chay thu nghiem. Ket luan phai dua tren paired Monte Carlo, do lon hieu so, CI 95%, win rate va cac chi tieu van hanh. Luu CSV de dam bao ket qua co the tai lap va kiem tra doc lap.
+4. NGUYÊN TẮC DIỄN GIẢI KẾT QUẢ TƯ VẤN
+--------------------------------------
+- Khi tổng cầu thị trường thấp hơn nhiều so với số phòng (Mùa thấp điểm): Chiến lược C chủ động hạ nhẹ giá trong dải hợp lý để kích cầu tăng tỷ lệ lấp đầy, trong khi A và B giữ giá cứng nhắc nên bán được ít phòng hơn.
+- Khi tổng cầu thị trường ngang bằng hoặc vượt sức chứa (Mùa chuyển tiếp, Cao điểm hè, Lễ hội):
+  + Chiến lược A bị khách hạng giá rẻ mua cạn phòng từ sớm (Spoilage), dẫn đến ADR và RevPAR thấp.
+  + Chiến lược B giữ lại phòng cho khách hạng cao (Deluxe, Suite VIP) nhờ ngưỡng bảo vệ EMSR-b, giúp tăng mạnh ADR và tổng doanh thu dù số phòng bán có thể tương đương hoặc thấp hơn nhẹ so với A.
+  + Chiến lược C vừa bảo vệ hạn mức phòng cho khách VIP, vừa tự động nâng hệ số giá vào những ngày cao điểm/cuối tuần và giai đoạn nước rút, qua đó đạt RevPAR và tổng doanh thu cao nhất.

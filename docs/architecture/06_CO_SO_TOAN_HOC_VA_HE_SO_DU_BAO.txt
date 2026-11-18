@@ -1,0 +1,137 @@
+CƠ SỞ TOÁN HỌC, CÔNG THỨC DỰ ĐOÁN VÀ CÁCH XÁC ĐỊNH CÁC HỆ SỐ PHÂN PHỐI LƯỢNG KHÁCH
+====================================================================================
+
+Tài liệu này giải thích chi tiết toàn bộ cơ sở lý thuyết, công thức toán học và phương pháp xác định các hệ số được sử dụng trong nền tảng RevRoom RMaaS để dự đoán và phân phối lượng khách hàng theo từng ngày (30 ngày trước check-in).
+
+------------------------------------------------------------------------------------
+1. TỔNG QUAN KIẾN THỨC & MÔ HÌNH TOÁN HỌC ĐƯỢC SỬ DỤNG
+------------------------------------------------------------------------------------
+Hệ thống sử dụng kết hợp 5 mô hình toán học và thống kê ứng dụng trong Quản trị Doanh thu Khách sạn (Hotel Revenue Management):
+
+1) Quá trình Poisson phi thuần nhất (Non-Homogeneous Poisson Process - NHPP):
+   - Khác với phân phối Poisson tĩnh (giả định mỗi ngày lượng khách đến đều như nhau), NHPP mô hình hóa dòng khách đến với cường độ biến thiên theo thời gian lambda(d) (d = 1..30).
+   - Tính chất cốt lõi của biến ngẫu nhiên Poisson X ~ Poisson(lambda):
+     + Xác suất có đúng k khách đến: P(X = k) = (lambda^k * e^(-lambda)) / k!
+     + Kỳ vọng (Mean): E[X] = lambda
+     + Phương sai (Variance): Var(X) = lambda
+     + Độ lệch chuẩn (Standard Deviation): sigma = sqrt(lambda)
+
+2) Mô hình Đường cong Đặt phòng theo Lead-Time (Gaussian RBF Booking Curve + Power-Law Acceleration):
+   - Dựa trên lý thuyết phân khúc khách hàng theo thời gian đặt trước (Lead-Time Segmentation):
+     + Khách nhạy cảm về giá (hạng Standard / Early Bird) đặt phòng xa ngày check-in (Lead-time lớn).
+     + Khách ít nhạy cảm về giá (hạng Deluxe / Suite VIP) đặt phòng sát ngày check-in (Lead-time nhỏ).
+   - Mỗi hạng phòng i có một tâm điểm đặt phòng (peakDay_i) được mô hình hóa bằng hàm mật độ chuông Gauss (Radial Basis Function), nhân với hàm lũy thừa gia tốc chốt phòng cận ngày check-in.
+
+3) Mô hình Phân rã Chuỗi thời gian Nhân tính (Multiplicative Time-Series Decomposition):
+   - Lượng cầu dự báo tại ngày d được phân rã thành tích của 3 nhân tố độc lập:
+     Demand(d) = BaseLeadTimeDemand(d) * Seasonality_DayOfWeek(d) * MacroTrendDrift(d)
+
+4) Hồi quy Tuyến tính Bình phương Tối thiểu (Ordinary Least Squares - OLS Regression):
+   - Ước lượng độ dốc xu hướng vĩ mô (Trend Slope) trên chuỗi dữ liệu lịch sử 90 ngày.
+
+5) Quy tắc Phân vị Tới hạn Littlewood & Thuật toán EMSR-b (Peter Belobaba, MIT 1989):
+   - Chuyển đổi từ phân phối nhu cầu dự báo (meanDemand, sdDemand) sang ngưỡng bảo vệ phòng (Protection Levels) và hạn mức mở bán (Booking Limits).
+
+------------------------------------------------------------------------------------
+2. CÁCH XÁC ĐỊNH CÁC HỆ SỐ TRONG CÁCH 1 (USER NHẬP KHÁCH DỰ TÍNH & THỜI ĐIỂM TRONG NĂM)
+------------------------------------------------------------------------------------
+Khi người dùng chưa có file lịch sử CSV và chọn Cách 1, hệ thống xác định các hệ số dự đoán thông qua ma trận mùa vụ (TIME_OF_YEAR_PROFILES trong src/services/demandForecastML.ts):
+
+A. Bảng tham số 4 thời điểm trong năm:
++-----------------------+----------------+----------------+----------------+-----------------+------------------+
+| Thời điểm (Mùa vụ)    | Hệ số tổng cầu | Hệ số cuối tuần| Hệ số ngày     | Hệ số gia tốc   | Dải hệ số giá    |
+|                       | (M_season)     | (S_wknd: T6,T7)| thường (T2-T5) | cuối kỳ (alpha) | hợp lý [Min-Max] |
++-----------------------+----------------+----------------+----------------+-----------------+------------------+
+| Quý 1 (T1–T3) Thấp    |     x0.75      |     x1.16      |     x0.91      |      1.15       |  0.82x – 1.12x   |
+| Quý 2 (T4–T6) Vai mùa |     x1.00      |     x1.24      |     x0.93      |      1.30       |  0.88x – 1.22x   |
+| Quý 3 (T7–T9) Cao điểm|     x1.35      |     x1.34      |     x0.95      |      1.48       |  0.95x – 1.35x   |
+| Quý 4 (T10–T12) Lễ/MICE|    x1.18      |     x1.28      |     x0.94      |      1.40       |  0.90x – 1.28x   |
++-----------------------+----------------+----------------+----------------+-----------------+------------------+
+(Riêng Chủ nhật luôn có hệ số S_sun = x1.06).
+
+B. Trình tự công thức tính toán từng bước của Cách 1:
+- Bước 1: Tính cường độ Poisson 30 ngày của từng hạng phòng i (i = 0 .. N-1, sắp xếp từ rẻ đến đắt):
+  lambda_i = round( BaseUserDemand_i * M_season )
+  Tổng cầu kỳ vọng 30 ngày: Lambda_total = sum_{i=0}^{N-1} lambda_i
+
+- Bước 2: Xác định trọng số đường cong Lead-time w_{i,d} cho ngày d (d = 1..30):
+  + Tỷ lệ phân khúc: r_i = i / (N - 1)  (với N = 1 thì r_0 = 0.5)
+  + Ngày đỉnh cầu: peakDay_i = 4 + 25 * r_i
+  + Độ lệch chuẩn độ trải rộng: sigma_i = max(5.0, 8.0 - 2.0 * r_i)
+  + Trọng số chưa chuẩn hóa:
+    raw_{i,d} = exp( -0.5 * ((d - peakDay_i) / sigma_i)^2 ) * [ 1 + (alpha - 1) * (d / 30)^1.6 ]
+  + Chuẩn hóa tổng bằng 1:
+    w_{i,d} = raw_{i,d} / sum_{k=1}^{30} raw_{i,k}
+
+- Bước 3: Kết hợp hệ số thứ trong tuần S_dow(d) và chuẩn hóa bảo toàn tổng cầu:
+  + Cường độ thô ngày d:
+    rawDailyLambda(d) = ( sum_{i=0}^{N-1} lambda_i * w_{i,d} ) * S_dow(d)
+  + Hệ số chuẩn hóa:
+    normFactor = Lambda_total / sum_{k=1}^{30} rawDailyLambda(k)
+  + Lượng khách dự đoán chính thức ngày d:
+    ForecastDemand(d) = round( rawDailyLambda(d) * normFactor, 1 )
+
+- Bước 4: Tính khoảng tin cậy 95% theo phân phối Poisson:
+  + Độ lệch chuẩn ngày d: dailySd(d) = sqrt( rawDailyLambda(d) * normFactor )
+  + Cận trên 95%: CI_Upper(d) = round( ForecastDemand(d) + 1.96 * dailySd(d), 1 )
+  + Cận dưới 95%: CI_Lower(d) = max( 0, round( ForecastDemand(d) - 1.96 * dailySd(d), 1 ) )
+
+------------------------------------------------------------------------------------
+3. CÁCH XÁC ĐỊNH CÁC HỆ SỐ TRONG CÁCH 2 (TRÍCH XUẤT TỪ DỮ LIỆU LỊCH SỬ CSV)
+------------------------------------------------------------------------------------
+Khi người dùng gửi dữ liệu đặt phòng của cùng kỳ năm ngoái hoặc 3 tháng gần nhất (file CSV), toàn bộ các hệ số được trích xuất tự động bằng thống kê thực nghiệm từ dữ liệu:
+
+- Bước 1: Tính Lead-time và Cầu trung bình của từng phân khúc s từ CSV (parseHistoricalBookingCsv):
+  + Thời gian đặt trước của đơn thứ k:
+    leadTime_k = max(0, round((stayDate_k - bookingDate_k) / 1_ngày))
+  + Thời gian đặt trước trung bình của phân khúc s:
+    avgLeadTime_s = (1 / M_s) * sum(leadTime_k)
+  + Nhu cầu trung bình mỗi ngày lưu trú của phân khúc s (chỉ tính các đơn không hủy):
+    dailyMean_s = TotalCheckedIn_s / UniqueStayDates_s
+  + Tổng cầu dự báo 30 ngày của phân khúc s:
+    forecastDemand30d_s = round( dailyMean_s * 30 )
+
+- Bước 2: Ước lượng Hệ số Xu hướng Tuyến tính OLS (Trend Slope):
+  + Với chuỗi lịch sử n ngày (t = 0 .. n-1, số lượt đặt y_t):
+    meanX = (1/n) * sum(t),   meanY = (1/n) * sum(y_t)
+    slope = [ sum(t * y_t) - n * meanX * meanY ] / [ sum(t^2) - n * meanX^2 ]
+  + Hệ số trượt xu hướng tại ngày dự báo d (d = 1..30):
+    trendDrift(d) = 1 + (slope / meanY) * ((d - 15) / 30)
+
+- Bước 3: Ước lượng Hệ số Mùa vụ Thứ trong tuần thực nghiệm (dowFactor):
+  + Với mỗi thứ trong tuần dow (0 = Chủ nhật .. 6 = Thứ 7):
+    avgDow[dow] = (Tổng số đơn của các ngày thứ dow) / (Số ngày thứ dow xuất hiện trong CSV)
+    dowFactor[dow] = clamp( avgDow[dow] / meanY, 0.75, 1.40 )
+
+- Bước 4: Xây dựng Trọng số Đường cong Lead-time thực tế từ avgLeadTime_s:
+  + Ngày đỉnh đặt phòng trong cửa sổ 30 ngày của phân khúc s:
+    peakDay_s = clamp( 31 - avgLeadTime_s, 2, 29 )
+  + Độ trải rộng: sigma_s = clamp( 7.5 - 0.8 * s, 4.5, 8.5 )
+  + Trọng số kết hợp:
+    rawW_{s,d} = exp( -0.5 * ((d - peakDay_s) / sigma_s)^2 ) * [ 1 + 0.35 * (d / 30)^2 ]
+    w_{s,d} = rawW_{s,d} / sum_{k=1}^{30} rawW_{s,k}
+
+- Bước 5: Tính Nhu cầu Dự đoán Từng ngày (d = 1..30):
+  + Giá trị thô ngày d:
+    combinedRaw(d) = [ sum_{s} (forecastDemand30d_s * w_{s,d}) ] * dowFactor[dow(d)] * trendDrift(d)
+  + Chuẩn hóa với tổng cầu totalForecastDemand30d = sum_s forecastDemand30d_s:
+    scaleRatio = totalForecastDemand30d / sum_{k=1}^{30} combinedRaw(k)
+    ForecastDemand(d) = round( combinedRaw(d) * scaleRatio, 1 )
+
+------------------------------------------------------------------------------------
+4. CÁCH XÁC ĐỊNH HỆ SỐ PHÂN PHỐI GIÁ ĐỘNG HỢP LÝ (RECOMMENDED PRICE MULTIPLIER)
+------------------------------------------------------------------------------------
+Từ chuỗi nhu cầu dự đoán từng ngày ForecastDemand(d) và quy mô phòng Capacity:
+1) Tỷ số áp lực cầu ngày d so với trung bình ngày (avgDaily = TotalDemand / 30):
+   demandIntensity(d) = ForecastDemand(d) / avgDaily
+2) Tỷ số áp lực tổng cầu trên công suất phòng:
+   demandToCapRatio = TotalDemand / max(20, Capacity)
+3) Hệ số tiến độ thời gian (càng gần ngày check-in, giá trị biên của phòng trống càng tăng):
+   progressFactor(d) = (d / 30) * 0.14 * min(1.5, demandToCapRatio)
+4) Hệ số giá đề xuất trong ngày d:
+   - Cách 1: Nội suy tuyến tính trong đoạn [priceFloor, priceCeiling] của mùa vụ đang chọn.
+   - Cách 2:
+     recMultiplier(d) = clamp( 0.90 + 0.16 * (demandIntensity(d) - 0.80) + progressFactor(d), 0.82, 1.32 )
+   - Dải giá hợp lý 30 ngày của hạng phòng i có giá cơ sở p_i:
+     + Giá kích cầu (Min Optimal Price) = round10k( p_i * min_d(recMultiplier(d)) )
+     + Giá trần cao điểm (Max Optimal Price) = round10k( p_i * max_d(recMultiplier(d)) )

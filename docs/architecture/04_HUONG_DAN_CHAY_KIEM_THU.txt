@@ -1,43 +1,44 @@
-HUONG DAN CAI DAT, CHAY VA KIEM THU REVROOM
-============================================================
+HƯỚNG DẪN CÀI ĐẶT, SỬ DỤNG VÀ KIỂM THỬ HỆ THỐNG REVROOM RMaaS
+====================================================================
 
-YEU CAU
-- Node.js 20+ khuyen nghi.
+1. YÊU CẦU MÔI TRƯỜNG
+---------------------
+- Node.js 20+ khuyến nghị.
 - npm.
 
-CAI DAT
-1. Giai nen ZIP.
-2. Mo terminal tai thu muc revRoom.
-3. Chay: npm install
+2. CÀI ĐẶT & KHỞI CHẠY WEB
+--------------------------
+- Cài đặt thư viện:
+  npm install
 
-CHAY WEB
-npm run dev
-Mo dia chi Vite hien thi tren terminal.
+- Chạy máy chủ phát triển (Development Server):
+  npm run dev
+  Mở trình duyệt tại địa chỉ hiển thị trên terminal (mặc định: http://localhost:5173).
 
-KIEM THU
-npm test
+- Kiểm tra kiểu dữ liệu & đóng gói bản Production:
+  npm run build
 
-BUILD SAN PHAM
-npm run build
+- Chạy bộ kiểm thử tự động (Unit Tests & Stress Tests):
+  npm test
 
-CAC NHOM TEST
-- tests/model.test.ts: tinh nhat quan cua mo hinh tong the, seed, hai phan phoi, EMSR-b, dynamic pricing va Monte Carlo.
-- tests/strategy-a/fcfs.test.ts: logic FCFS doc lap.
-- tests/strategy-b/emsr-b.test.ts: tinh protection va mo phong B.
-- tests/strategy-c/dynamic-pricing.test.ts: tinh gia dong va mo phong C.
-- tests/ui.spec.ts: UI smoke test neu Playwright browser da duoc cai dat.
+3. QUY TRÌNH SỬ DỤNG DỊCH VỤ ĐỊNH GIÁ TRÊN WEB
+----------------------------------------------
+Bước 1: Thiết lập thông tin khách sạn (Mục 1 tại tab "Dịch vụ định giá")
+  - Nhập tên khách sạn, số lượng phòng tổng thể (Capacity, hỗ trợ lên tới 5.000 phòng) và danh sách các hạng phòng kèm giá niêm yết cơ sở.
+  - Có thể bấm nút "Nạp mẫu (100 phòng)" để khởi tạo nhanh cấu hình mẫu.
 
-MONTE CARLO TREN WEB
-1. Chon Seed trong phan Cau hinh va nhan Ap dung.
-2. Mo tab Monte Carlo.
-3. Chon 100, 250, 500, 1.000 hoac 5.000 luot.
-4. Bam Chay seed ghep cap.
-5. Doc bang thong ke tong hop va bang so sanh cap.
-6. Bang chi tiet hien toi da 100 seed dau tien.
-7. Bam Tai CSV tung luot de xuat day du cac seed.
+Bước 2: Chọn 1 trong 2 cách mô phỏng & dự đoán lượng khách
+  - CÁCH 1 (Phân phối Poisson theo thời điểm trong năm):
+    + Mở tab Cách 1, chọn Thời điểm trong năm (Mùa Thấp Điểm T1–T3, Mùa Chuyển Tiếp T4–T6, Mùa Cao Điểm Hè T7–T9, hoặc Mùa Lễ Hội & MICE T10–T12).
+    + Nhập tổng lượng khách dự tính hoặc nhập số khách dự tính cho từng hạng phòng. Hệ thống tự động nhân hệ số mùa vụ và dùng phân phối Poisson (NHPP) sinh dự báo nhu cầu 30 ngày.
+  - CÁCH 2 (Gửi dữ liệu Cùng kỳ năm ngoái hoặc 3 tháng gần nhất - CSV):
+    + Mở tab Cách 2, chọn 1 trong 4 bộ dữ liệu mẫu 3 tháng theo mùa hoặc bấm "Tải file CSV lên" để nạp file lịch sử đặt phòng từ máy tính (các file mẫu có sẵn trong thư mục docs/).
+  - Lưu ý: Mở cách nào hệ thống sẽ áp dụng cách đó. Nếu thu gọn cả 2 cách, lượng khách dự đoán sẽ về trạng thái rỗng (0 khách).
 
-TAI LAP
-Ghi lai seed bat dau, so luot, intensity, prices, demands, distribution, capacity, k, min, max. Cung cau hinh va seed se tao lai cung tap khach. Monte Carlo dung cac seed lien tiep va co wrap theo gioi han PRNG.
+Bước 3: Xem đề xuất định giá & Mô phỏng 3 chiến lược
+  - Xem biểu đồ dự báo nhu cầu từng ngày & hệ số giá hợp lý (Mục 2), bảng phân phối giá & hạn mức bảo vệ phòng EMSR-b (Mục 3) và dự phóng doanh thu 3 chiến lược (Mục 4).
+  - Chuyển sang các tab "Chiến lược A", "Chiến lược B", "Chiến lược C" hoặc "Mô phỏng & So sánh" để theo dõi diễn biến bán phòng chi tiết qua 30 ngày.
 
-GHI CHU KIEM THU
-Can chay npm install thanh cong truoc khi chay npm test va npm run build. Neu moi truong khong tai duoc dependency, khong the ket luan build UI da pass; can chay lai tren may co ket noi npm.
+Bước 4: Kiểm định Monte Carlo đa kịch bản
+  - Mở tab "Kiểm định Monte Carlo", chọn số lượng kịch bản (100, 250, 500 hoặc 1.000 kịch bản) và bấm chạy.
+  - Đối chiếu kết quả giữa các kịch bản thị trường (Thấp điểm P10, Cơ sở P50, Cao điểm P90, Đỉnh Max) và tải file CSV kết quả.

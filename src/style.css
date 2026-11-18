@@ -10,3 +10,18 @@
 @media(max-width:800px){.segments.three{grid-template-columns:1fr}}
 
 @media(min-width:851px){.segment-summary,.room-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* RMaaS Hotel Pricing Service & Strategy Detail Styles */
+.service-hero-card{display:flex;justify-content:space-between;align-items:center;gap:24px;background:linear-gradient(135deg,#edf7f4 0%,#f0fdf9 100%);border:1px solid #cce8e0;border-radius:12px;padding:24px 28px;margin-bottom:20px}
+.service-hero-content{max-width:760px}
+.service-hero-content h2{font:700 22px Manrope,sans-serif;color:#07483f;margin:8px 0 10px}
+.service-hero-content p{font-size:12px;color:#35635b;line-height:1.7;margin:0}
+.service-badge{display:inline-flex;align-items:center;gap:6px;background:#007f72;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.5px}
+.service-hero-stats{display:flex;gap:14px;flex-shrink:0}
+.stat-box{background:#fff;border:1px solid #d4eae3;border-radius:10px;padding:12px 18px;text-align:center;min-width:130px;box-shadow:0 2px 6px rgba(0,127,114,0.06)}
+.stat-box span{display:block;font-size:10px;color:#6b8782}
+.stat-box b{display:block;font:800 20px Manrope,sans-serif;color:#007f72;margin:4px 0}
+.stat-box small{font-size:9px;color:#859e9a}
+.strategy-detail-container{display:grid;gap:20px}
+@media(max-width:900px){.service-hero-card{flex-direction:column;align-items:flex-start}.service-hero-stats{width:100%}.stat-box{flex:1}}
+

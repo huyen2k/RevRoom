@@ -1,65 +1,47 @@
-EMSR-b - THUAT TOAN BAO VE TON KHO
-============================================================
+CHIẾN LƯỢC B: THUẬT TOÁN BẢO VỆ HẠN MỨC TỒN KHO EMSR-b (MỞ RỘNG N HẠNG PHÒNG)
+================================================================================
 
-1. BAI TOAN
+1. BÀI TOÁN BẢO VỆ TỒN KHO KHÁCH SẠN
+------------------------------------
+Để khắc phục nhược điểm bán hết phòng sớm cho khách giá rẻ của FCFS, Chiến lược B áp dụng thuật toán EMSR-b (Expected Marginal Seat Revenue - variant b của Peter Belobaba, MIT). Thay vì mở bán tự do toàn bộ quỹ phòng cho mọi phân khúc, hệ thống tính toán số lượng phòng cần khóa bảo vệ (Protection Levels) để dành riêng cho các hạng phòng có giá cao hơn dự kiến sẽ đến sau.
 
-Khach san co nhieu lop gia. Neu chap nhan qua nhieu booking gia thap, khach san co the khong con phong khi nhu cau gia cao den sau. EMSR-b tinh so phong can bao ve cho cac lop gia cao hon.
+2. CÔNG THỨC TOÁN HỌC EMSR-b CHO N HẠNG PHÒNG (src/services/emsrN.ts)
+---------------------------------------------------------------------
+Giả sử khách sạn có N hạng phòng được sắp xếp theo mức giá tăng dần:
+  p_0 < p_1 < ... < p_{N-1}
+và nhu cầu kỳ vọng tương ứng là:
+  mu_0, mu_1, ..., mu_{N-1}
+trên số phòng trống còn lại là C.
 
-2. KY HIEU
+Với mỗi hạng phòng thấp i (từ i = 0 đến N - 2), thuật toán gộp toàn bộ các hạng phòng cao hơn (j = i + 1 .. N - 1) thành một "lớp ảo" tổng hợp:
+1) Tổng nhu cầu kỳ vọng của các hạng cao hơn:
+   AggregatedMean_i = sum_{j = i+1}^{N-1} mu_j
 
-p1 < p2 < p3: gia cac phan khuc tu thap den cao.
-mu1, mu2, mu3: nhu cau du bao con lai tu ngay hien tai den het cua so dat.
-C: so phong con lai.
+2) Mức giá bình quân gia quyền theo nhu cầu của các hạng cao hơn:
+   WeightedFare_i = (sum_{j = i+1}^{N-1} p_j * mu_j) / AggregatedMean_i
 
-3. GHEP NHOM LOP GIA CAO
+3) Phân vị tới hạn (Critical Fractile - Quy tắc Littlewood):
+   CR_i = max(0, min(1, 1 - p_i / WeightedFare_i))
 
-Voi moi lop gia thap i, gom nhu cau cac lop gia cao hon:
-mu(i+1:n) = sum(mu_j), j > i
+4) Ngưỡng bảo vệ tồn kho (Protection Level):
+   y_i = DemandQuantile(AggregatedMean_i, CR_i, C)
+   Trong đó DemandQuantile tìm mức phòng y_i trong đoạn [0, C] sao cho xác suất nhu cầu gộp của các hạng cao vượt quá y_i đạt ngưỡng p_i / WeightedFare_i.
+   (Khi AggregatedMean_i > 1000, hệ thống tự động dùng xấp xỉ chuẩn Gauss O(1) theo Định lý Giới hạn Trung tâm để đảm bảo tốc độ tính toán tức thì và an toàn bộ nhớ).
 
-Gia binh quan co trong so nhu cau:
-r(i+1:n) = sum(p_j * mu_j) / sum(mu_j)
+5) Tính chất bảo vệ lồng nhau (Nested Protection Levels) và Hạn mức mở bán (Booking Limits):
+   - Đảm bảo tính đơn điệu: y_0 >= y_1 >= ... >= y_{N-2} >= 0, và hạng cao nhất có y_{N-1} = 0.
+   - Hạn mức mở bán tối đa cho hạng phòng i:
+     BookingLimit_i = max(0, C - y_i)
+   - Hạng phòng cao nhất (N - 1) luôn được mở bán toàn bộ C phòng trống còn lại (BookingLimit_{N-1} = C).
 
-Critical fractile:
-q_i = max(0, min(1, 1 - p_i / r(i+1:n)))
+3. QUY TẮC CHẤP NHẬN ĐẶT PHÒNG TRONG CHIẾN LƯỢC B
+-------------------------------------------------
+Tại mỗi ngày d, Chiến lược B giữ nguyên giá niêm yết cơ sở (offeredPrice_i = p_i) và tính ngưỡng bảo vệ protection_i trên số phòng trống còn lại remainingRooms. Khi khách thuộc hạng phòng i đến:
+1) Nếu WTP < p_i: Từ chối do giá (price rejection).
+2) Nếu remainingRooms <= 0: Từ chối do hết phòng (full rejection).
+3) Nếu remainingRooms <= protection_i (tức chạm rào chắn bảo vệ dành cho hạng cao hơn): Từ chối để bảo vệ phòng (protected rejection).
+4) Ngược lại: Chấp nhận đặt phòng, giảm remainingRooms đi 1 và cộng p_i vào doanh thu.
 
-Protection level:
-Y_i = Quantile(Demand(i+1:n), q_i), gioi han trong [0, C].
-
-Voi ba lop gia, tinh hai protection level:
-Y1 bao ve nhu cau standard + business cho tourist.
-Y2 bao ve nhu cau business cho standard.
-Y1 duoc dam bao khong nho hon Y2. Lop gia cao nhat khong can bao ve lop cao hon.
-
-4. QUANTILE
-
-Neu chon Poisson, dung Poisson quantile voi tham so la tong mean nhu cau cac lop cao hon.
-Neu chon Normal, dung xap xi voi mean = mu va variance = mu, tim phan vi bang tim kiem nhi phan.
-Day la implementation xap xi phu hop voi mo hinh hien tai; khong nen dien giai la mo hinh du bao da duoc hieu chinh tu du lieu thuc te.
-
-5. QUY TAC CHAP NHAN
-
-Khi khach lop gia i den:
-- Tu choi neu WTP < gia.
-- Tu choi neu het phong.
-- Voi lop gia thap i < 3, tu choi neu so phong con lai <= protection[i].
-- Nguoc lai chap nhan.
-
-6. FILE LIEN QUAN
-
-src/model/strategy-b/emsrB.ts: quantile va emsrB().
-src/model/strategy-b/simulation.ts: simulateEmsrDay().
-tests/strategy-b/emsr-b.test.ts: test protection lồng nhau va gia co dinh.
-
-7. BIEU DO VA KIEM TRA
-
-Dashboard hien thi protection level theo ngay cho B va C. Duong lien net la protection level 1; duong dut net la protection level 2.
-Kiem tra:
-- Y1 >= Y2 >= 0.
-- Y2 va Y1 khong vuot ton kho con lai luc dau ngay.
-- Gia cua B luon bang gia co so.
-- Moi booking duoc chap nhan phai co WTP >= gia.
-- Tong accepted + price reject + protected reject + full reject bang potential.
-
-8. DIEM CAN LUU Y
-
-EMSR-b la heuristic inventory control dua tren forecast va gia. Chat luong protection level phu thuoc vao booking curve, intensity, phan phoi va buyProbability. Ket qua mo phong la ket qua theo gia dinh dau vao, khong phai bao dam doanh thu thuc te.
+4. HIỆU QUẢ ĐẠT ĐƯỢC
+--------------------
+Nhờ chủ động từ chối một phần khách hạng giá thấp khi quỹ phòng chạm ngưỡng bảo vệ, Chiến lược B giữ lại được phòng trống cho khách hạng Deluxe và Suite VIP đến vào nửa cuối chu kỳ, giúp nâng cao đáng kể giá bán bình quân (ADR) và tổng doanh thu (RevPAR) so với Chiến lược A (FCFS).

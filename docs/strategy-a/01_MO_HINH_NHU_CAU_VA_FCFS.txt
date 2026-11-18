@@ -1,79 +1,143 @@
-MO HINH NHU CAU KHACH HANG VA CHIEN LUOC FCFS
-============================================================
+MÔ HÌNH DỰ ĐOÁN NHU CẦU, CÁCH XÁC ĐỊNH CÁC HỆ SỐ PHÂN PHỐI KHÁCH & CHIẾN LƯỢC A (FCFS)
+========================================================================================
 
-1. PHAM VI MO PHONG
+1. KIẾN THỨC NỀN TẢNG & CƠ SỞ KHOA HỌC DÙNG TRONG DỰ ĐOÁN NHU CẦU
+-----------------------------------------------------------------
+Hệ thống dự báo và phân phối lượng khách của RevRoom RMaaS được xây dựng dựa trên 4 nền tảng toán học và quản trị doanh thu khách sạn quốc tế:
+1) Quá trình Poisson phi thuần nhất (Non-Homogeneous Poisson Process - NHPP):
+   Mô hình hóa dòng khách đến đặt phòng ngẫu nhiên rời rạc theo thời gian với cường độ biến thiên lambda(d) theo từng ngày d trong chu kỳ mở bán 30 ngày.
+2) Lý thuyết Đường cong Đặt phòng theo Lead-Time (Hotel Booking Curve & Lead-Time Dynamics - Weatherford & Bodily, 1992; Talluri & van Ryzin, 2004):
+   Phân khúc khách nhạy cảm về giá (hạng phổ thông/giá rẻ) luôn đặt phòng từ sớm (Lead-time xa ngày nhận phòng); phân khúc khách thương gia/VIP sẵn sàng chi trả cao luôn đặt phòng sát ngày nhận phòng (Lead-time ngắn).
+3) Mô hình Phân rã Chuỗi thời gian Nhân tính (Multiplicative Time-Series Decomposition):
+   Tách nhu cầu từng ngày thành tích của 3 thành phần: Nhu cầu theo Lead-time * Hệ số mùa vụ thứ trong tuần (Day-of-Week Seasonality) * Xu hướng tuyến tính vĩ mô (OLS Linear Trend).
+4) Định lý Giới hạn Trung tâm (Central Limit Theorem) & Khoảng tin cậy Wald 95%:
+   Ước lượng độ biến động ngẫu nhiên sigma = sqrt(lambda) và dải tin cậy 95% (CI 95% = lambda +/- 1.96 * sqrt(lambda)), đồng thời chuyển sang xấp xỉ chuẩn Gauss O(1) khi lambda lớn để tối ưu hiệu năng.
 
-- Mot khach san co 100 phong cung mot loai phong.
-- Mot ngay luu tru co 30 ngay nhan dat phong.
-- Ba phan khuc: tourist, standard, business.
-- Ba muc gia tham chieu tang dan.
-- Moi khach co willingness-to-pay (WTP), phan khuc va ngay den.
-- Khong mo hinh hoa huy phong, no-show, overbooking va nhieu dem luu tru.
+----------------------------------------------------------------------------------------
+2. CÁCH 1: XÁC ĐỊNH CÁC HỆ SỐ DỰ ĐOÁN KHI USER NHẬP KHÁCH DỰ TÍNH & THỜI ĐIỂM TRONG NĂM
+   (Triển khai tại: src/services/demandForecastML.ts -> forecastFromClasses)
+----------------------------------------------------------------------------------------
 
-2. BOOKING CURVE
+A. Cách xác định Bộ hệ số Thời điểm trong năm (TIME_OF_YEAR_PROFILES)
+Dựa trên đặc thù chu kỳ du lịch - lưu trú 4 quý trong năm, mỗi thời điểm mang một bộ hệ số chuẩn hóa:
 
-Tong nhu cau ky vong cua phan khuc s duoc phan bo vao 30 ngay theo trong so w[s,d]. Tong trong so cua moi phan khuc bang 1.
+1) Hệ số điều chỉnh tổng cầu mùa vụ (demandMultiplier - M_season):
+   - Quý 1 (Tháng 1–3 · Mùa Thấp Điểm Sau Tết)     : M_season = 0.75 (Nhu cầu giảm 25% so với trung bình năm).
+   - Quý 2 (Tháng 4–6 · Mùa Chuyển Tiếp & Đầu Hè)  : M_season = 1.00 (Mức cơ sở cân bằng).
+   - Quý 3 (Tháng 7–9 · Mùa Cao Điểm Du Lịch Hè)   : M_season = 1.35 (Nhu cầu bùng nổ +35% dịp hè).
+   - Quý 4 (Tháng 10–12 · Mùa Lễ Hội & MICE)       : M_season = 1.18 (Nhu cầu tăng +18% nhờ hội nghị & lễ cuối năm).
 
-Tourist: trong so giam dan theo thoi gian, dai dien nhom dat som.
-Standard: trong so dang tam giac, tap trung o giua cua so dat.
-Business: trong so tang dan, dai dien nhom dat muon.
+   => Công thức tính Cường độ Poisson thực tế (lambda_i) cho từng hạng phòng i từ lượng khách dự tính cơ sở do User nhập (lambda_{0,i}):
+      lambda_i = round(lambda_{0,i} * M_season)
+      Tổng cường độ Poisson toàn khách sạn trong 30 ngày:
+      Lambda_total = sum_{i=0}^{N-1} lambda_i
 
-So khach ky vong trong ngay d:
-mu[s,d] = demand[s] * intensity * w[s,d]
+2) Hệ số biến động theo thứ trong tuần (Day-of-Week Multiplier - S_dow):
+   Phản ánh quy luật khách lưu trú cuối tuần cao hơn ngày trong tuần:
+   - Thứ 6 & Thứ 7 (weekendSurge) : S_wknd = 1.16 (Q1), 1.24 (Q2), 1.34 (Q3), 1.28 (Q4).
+   - Chủ nhật                     : S_sun  = 1.06.
+   - Thứ 2 – Thứ 5 (weekdayFactor): S_wkday = 0.91 (Q1), 0.93 (Q2), 0.95 (Q3), 0.94 (Q4).
 
-3. PHAN PHOI SO KHACH
+3) Hệ số gia tốc đặt phòng sát ngày check-in (lateBookingSkew - alpha_skew):
+   Đo lường mức độ dồn đơn đặt phòng vào giai đoạn nước rút cuối chu kỳ:
+   - alpha_skew = 1.15 (Q1), 1.30 (Q2), 1.48 (Q3), 1.40 (Q4).
 
-Poisson:
-N[s,d] ~ Poisson(mu[s,d])
+B. Công thức xác định Trọng số phân phối khách theo ngày (w_{i,d}) trong chu kỳ 30 ngày
+Giả sử khách sạn có N hạng phòng được sắp xếp theo giá niêm yết tăng dần (i = 0 .. N-1). Với mỗi ngày mở bán d (d = 1 .. 30, trong đó d = 1 là 30 ngày trước check-in, d = 30 là ngày check-in):
+1) Tỷ lệ vị trí hạng phòng:
+   r_i = i / (N - 1)   (nếu N = 1 thì r_0 = 0.5)
+2) Ngày đạt đỉnh đặt phòng của hạng phòng i (Peak Arrival Day):
+   peakDay_i = 4 + 25 * r_i
+   - Hạng giá rẻ nhất (i = 0): đạt đỉnh sớm tại ngày d = 4 (cách ngày check-in 27 ngày).
+   - Hạng giá cao nhất (i = N-1): đạt đỉnh muộn tại ngày d = 29 (sát ngày check-in).
+3) Độ rộng đường cầu Gaussian (sigma_i):
+   sigma_i = max(5.0, 8.0 - 2.0 * r_i)
+4) Trọng số thô ngày d (kết hợp hàm mật độ Gauss và hàm gia tốc cuối kỳ):
+   rawWeight_{i,d} = exp( -0.5 * ((d - peakDay_i) / sigma_i)^2 ) * [ 1 + (alpha_skew - 1) * (d / 30)^1.6 ]
+5) Chuẩn hóa trọng số để tổng 30 ngày của mỗi hạng phòng đúng bằng 1:
+   w_{i,d} = rawWeight_{i,d} / sum_{k=1}^{30} rawWeight_{i,k}
 
-Normal approximation:
-N[s,d] = max(0, round(mu[s,d] + sqrt(mu[s,d]) * Z)), Z ~ N(0,1).
+C. Công thức tính Lượng khách dự đoán từng ngày E[D(d)] và Khoảng tin cậy 95%
+1) Cường độ thô ngày d:
+   rawDailyLambda(d) = ( sum_{i=0}^{N-1} lambda_i * w_{i,d} ) * S_dow(d)
+2) Chuẩn hóa bảo toàn tổng cầu 30 ngày:
+   normFactor = Lambda_total / sum_{d=1}^{30} rawDailyLambda(d)
+   E[D(d)] = lambda(d) = round( rawDailyLambda(d) * normFactor, 1 )
+3) Độ lệch chuẩn và Khoảng tin cậy 95% theo tính chất phân phối Poisson (Phương sai = Kỳ vọng):
+   SD(d) = sqrt( lambda(d) )
+   CI_Upper_95(d) = round( lambda(d) + 1.96 * sqrt(lambda(d)), 1 )
+   CI_Lower_95(d) = max( 0, round( lambda(d) - 1.96 * sqrt(lambda(d)), 1 ) )
 
-Normal trong phan mem la xap xi Gaussian cho bien dem, khong phai phan phoi chinh xac tren so nguyen khong am. Gia tri duoc lam tron va cat tai 0.
+----------------------------------------------------------------------------------------
+3. CÁCH 2: XÁC ĐỊNH CÁC HỆ SỐ DỰ ĐOÁN TỪ DỮ LIỆU LỊCH SỬ CÙNG KỲ / 3 THÁNG GẦN NHẤT (CSV)
+   (Triển khai tại: historicalDataService.ts & demandForecastML.ts -> forecastDemandFromHistory)
+----------------------------------------------------------------------------------------
 
-4. WILLINGNESS TO PAY
+Khi người dùng tải lên file CSV lịch sử đặt phòng, hệ thống không dùng hệ số cố định mà tự động học (trích xuất) các hệ số trực tiếp từ dữ liệu:
 
-WTP ~ Uniform(0.7 * referencePrice, 1.6 * referencePrice).
+Bước 1: Trích xuất tham số phân khúc từ các bản ghi lịch sử (parseHistoricalBookingCsv)
+- Thời gian đặt trước (Lead-time) của mỗi đơn đặt phòng k:
+  leadTime_k = max(0, round((stayDate_k - bookingDate_k) / 86400000))
+- Thời gian đặt trước trung bình của phân khúc s:
+  avgLeadTime_s = mean(leadTime_k thuộc phân khúc s)
+- Nhu cầu trung bình ngày (mu_s) và Dự báo tổng cầu 30 ngày tới của phân khúc s:
+  mu_s = (Tổng số đơn thành công của phân khúc s) / (Số ngày có phát sinh lưu trú)
+  forecastDemand30d_s = round(mu_s * 30)
 
-Khach mua neu WTP >= gia chao cua phan khuc. WTP duoc sinh mot lan va giu nguyen khi so sanh A/B/C.
+Bước 2: Xác định Hệ số Xu hướng Tuyến tính OLS (Ordinary Least Squares Trend)
+Trên chuỗi thời gian lịch sử n ngày (t = 0 .. n-1, với y_t là số lượng đặt phòng ngày t):
+- Trung bình thời gian và trung bình lượng đặt:
+  meanX = (1/n) * sum(t),   meanY = (1/n) * sum(y_t)
+- Hệ số góc xu hướng (Trend Slope b):
+  slope = [ sum(t * y_t) - n * meanX * meanY ] / [ sum(t^2) - n * meanX^2 ]
+- Hệ số trượt xu hướng (Trend Drift) cho ngày dự báo d (d = 1 .. 30):
+  trendDrift(d) = 1 + (slope / meanY) * ((d - 15) / 30)
 
-5. SEED VA TAI LAP
+Bước 3: Xác định Hệ số Mùa vụ Thứ trong tuần thực nghiệm (Empirical Day-of-Week Factor)
+Với mỗi thứ trong tuần dow (0 = Chủ nhật .. 6 = Thứ 7):
+- Trung bình lượt đặt của thứ dow:
+  avgDow[dow] = (Tổng lượt đặt rơi vào thứ dow) / (Số ngày thứ dow trong dữ liệu)
+- Hệ số mùa vụ thứ dow (giới hạn an toàn trong [0.75, 1.40]):
+  dowFactor[dow] = clamp( avgDow[dow] / meanY, 0.75, 1.40 )
 
-PRNG Mulberry32 khoi tao tu Config.seed. Generator tao so khach, WTP va thu tu den theo mot luong so gia ngau nhien co the tai lap.
-Cung seed + cung cau hinh => cung CustomerSchedule. Seed khac thuong tao mot kich ban khach khac.
-A/B/C phai su dung chung lich khach trong cung mot lan chay; khong duoc goi generator rieng cho tung chien luoc.
+Bước 4: Phân rã Đường cong Nhịp độ Đặt phòng theo Lead-Time thực tế (Lead-Time Pickup Curve)
+Từ thời gian đặt trước trung bình avgLeadTime_s của từng phân khúc s:
+- Ngày đỉnh đặt phòng trong chu kỳ 30 ngày:
+  peakDay_s = clamp( 31 - avgLeadTime_s, 2, 29 )
+- Độ trải rộng phân khúc s:
+  sigma_s = clamp( 7.5 - 0.8 * s, 4.5, 8.5 )
+- Trọng số ngày d của phân khúc s:
+  rawW_{s,d} = exp( -0.5 * ((d - peakDay_s) / sigma_s)^2 ) * [ 1 + 0.35 * (d / 30)^2 ]
+  w_{s,d} = rawW_{s,d} / sum_{k=1}^{30} rawW_{s,k}
 
-6. FCFS - FIRST COME, FIRST SERVED
+Bước 5: Tổng hợp dự báo từng ngày & Chuẩn hóa
+- Nhu cầu kết hợp ngày d:
+  combinedRaw(d) = [ sum_{s} (forecastDemand30d_s * w_{s,d}) ] * dowFactor[dow(d)] * trendDrift(d)
+- Chuẩn hóa với tổng cầu 30 ngày (totalForecastDemand30d = sum_s forecastDemand30d_s):
+  scaleRatio = totalForecastDemand30d / sum_{k=1}^{30} combinedRaw(k)
+  forecastDemand(d) = round( combinedRaw(d) * scaleRatio, 1 )
 
-Voi tung khach theo thu tu den:
-1) Xac dinh gia cua phan khuc.
-2) Neu WTP < gia, tu choi vi gia (price rejection).
-3) Neu het phong, tu choi vi full.
-4) Nguoc lai, chap nhan dat phong, tang sold va doanh thu.
+----------------------------------------------------------------------------------------
+4. CÔNG THỨC XÁC ĐỊNH HỆ SỐ PHÂN PHỐI GIÁ ĐỘNG HỢP LÝ THEO TỪNG NGÀY
+----------------------------------------------------------------------------------------
+Dựa trên lượng khách dự đoán từng ngày forecastDemand(d) và quy mô phòng capacity:
+1) Tỷ số áp lực cầu trong ngày so với cầu trung bình ngày (avgDailyTarget = totalForecast / 30):
+   demandRatio(d) = forecastDemand(d) / avgDailyTarget
+2) Tỷ số áp lực công suất toàn chu kỳ:
+   capacityPressure = totalForecast / max(20, capacity)
+3) Phụ phí tiến độ khi càng gần ngày check-in (Pace Premium):
+   pacePremium(d) = (d / 30) * 0.12 * min(1.5, capacityPressure / 1.5)
+4) Hệ số giá hợp lý đề xuất cho ngày d (recommendedMultiplier):
+   - Khi cầu ngày d thấp (đầu chu kỳ, ngày thường): hệ số hạ về vùng kích cầu (0.82x – 0.95x).
+   - Khi cầu ngày d tăng cao (cuối tuần, 10 ngày cuối): hệ số tăng lên vùng tối ưu hóa doanh thu (1.05x – 1.35x).
 
-FCFS khong co protection level. Khach du kha nang chi tra duoc chap nhan neu con phong, bat ke phan khuc gia cao co the den sau.
-
-7. UU DIEM CUA FCFS
-
-- Don gian, de giai thich va de trien khai.
-- Toc do tinh toan nhanh, it tham so.
-- Minh bach: ket qua phu thuoc vao thu tu den, gia va WTP.
-- La baseline tot de do muc cai thien cua inventory control.
-- Khong can uoc luong phan phoi nhu cau tuong lai de ra quyet dinh chap nhan.
-
-8. NHUOC DIEM CUA FCFS
-
-- Khong tinh den co hoi ban phong cho phan khuc gia cao den muon.
-- Co the ban het phong som cho phan khuc gia thap.
-- Khong phan bo ton kho theo gia tri bien cua nhu cau.
-- Khong phan ung voi booking pace hoac thay doi gia.
-- Ket qua nhay voi thu tu den; neu booking curve khong duoc mo hinh hoa hop ly, baseline co the bi lech.
-
-9. CAC CHI SO
-
-Revenue = tong gia ban cua cac booking duoc chap nhan.
-Occupancy = sold / capacity * 100%.
-ADR = revenue / sold.
-RevPAR = revenue / capacity.
-
-FCFS la duong co so de so sanh voi B (inventory protection) va C (inventory protection + dynamic pricing).
+----------------------------------------------------------------------------------------
+5. SINH KHÁCH NGẪU NHIÊN TRONG MÔ PHỎNG & CHIẾN LƯỢC A (FCFS)
+----------------------------------------------------------------------------------------
+- Số khách thực tế của hạng phòng i đến trong ngày d được sinh ngẫu nhiên từ kỳ vọng mean_{i,d}:
+  + Phân phối Poisson: N_{i,d} ~ Poisson(mean_{i,d}) bằng thuật toán Knuth (khi mean <= 500) hoặc xấp xỉ chuẩn Gauss O(1) (khi mean > 500).
+  + Mức sẵn sàng chi trả của mỗi khách: WTP ~ Uniform(0.7 * p_i, 1.6 * p_i).
+- Quy tắc Chiến lược A (FCFS - First-Come, First-Served):
+  + Giá cố định bằng giá cơ sở p_i, ngưỡng bảo vệ tồn kho bằng 0.
+  + Khách đến nếu có WTP >= p_i và còn phòng trống (remainingRooms > 0) sẽ được nhận phòng ngay lập tức.
+  + Hạn chế (The Spoilage Trap): Khách hạng giá rẻ đặt sớm mua hết phòng trống trước khi khách VIP trả giá cao xuất hiện ở cuối chu kỳ.
