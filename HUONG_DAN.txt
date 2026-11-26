@@ -1,0 +1,54 @@
+revRoom – Hướng dẫn dùng trên Windows
+
+1. Giải nén toàn bộ ZIP vào một thư mục. Mở thư mục chứa MO_WEB.cmd.
+2. Cài Node.js LTS từ https://nodejs.org nếu máy chưa có Node.js.
+3. Nhấp đúp MO_WEB.cmd. Trình duyệt sẽ mở trang Tổng quan. Nếu chưa mở, chép địa chỉ http://127.0.0.1:... từ cửa sổ lệnh vào trình duyệt. Giữ cửa sổ lệnh mở trong lúc dùng web. Nhấn Ctrl+C để dừng.
+4. Ở Tổng quan, chọn mức trong mục Cường độ nhu cầu. Thấp, Cơ sở và Cao lần lượt nhân nhu cầu mỗi phân khúc với 0,5, 1 và 1,5. Chọn mức sẽ bắt đầu kỳ bán mới với các tham số đã áp dụng.
+5. Bấm Step ngày một lần. Xem Nhật ký giao dịch ngày 1. Bấm mũi tên Danh mục ở góc trên bên trái (kể cả khi đang cuộn), rồi mở Animation khách, chọn một khách và đọc ba thẻ A/B/C để hiểu giá chào, quyết định và phòng còn lại. WTP là mức khách sẵn sàng trả.
+6. Về Tổng quan, chọn Chạy đủ 30 ngày. So sánh doanh thu và tỷ lệ lấp đầy cho cùng một đêm lưu trú. A bán theo thứ tự đến, B giữ phòng cho lớp giá cao, C kết hợp giữ phòng và điều chỉnh giá.
+7. Vào So sánh chính sách, bấm So sánh 3 mức nhu cầu, chờ hiện 3/3. Mỗi mức chạy 100 lượt. Giá trị C − B dương nghĩa là C thu nhiều hơn B tính trung bình, âm nghĩa là B cao hơn. Nếu khoảng tin cậy chứa 0, kết quả chưa cho thấy khác biệt rõ. Xem cả cột lấp đầy. Rời màn hình sẽ kết thúc lần so sánh và xóa bảng so sánh hiện tại.
+8. Để đổi seed hoặc giá, mở Cấu hình nâng cao, nhập tham số rồi bấm Áp dụng & tạo lại mô phỏng. Cùng seed và cấu hình sẽ tái lập cùng kịch bản. Muốn xuất dữ liệu nhiều lượt, chọn mức nhu cầu, vào Monte Carlo, chọn số lượt, chạy và bấm Tải CSV từng lượt.
+9. Để chỉnh mã nguồn: mở CMD tại thư mục chứa package.json, chạy npm ci rồi npm run dev. Mở địa chỉ Local được in ra. Sau khi sửa, chạy npm run build để cập nhật bản MO_WEB.cmd sử dụng.
+
+GIẢ LẬP DỮ LIỆU
+
+1. Mở Danh mục → Giả lập dữ liệu. Trang có hai nhóm 30 ngày. Mỗi nhóm
+   hiển thị Ngày 1 đến Ngày 30 theo thứ tự. Nhóm trước lấy 30 ngày liền
+   trước hôm nay. Nhóm tiếp theo bắt đầu từ hôm nay. Web tự xác định
+   cuối tuần theo lịch máy và hiển thị loại ngày ngay trên ô.
+
+2. Bấm một ô ngày để mở hộp chỉnh. Chọn Loại ngày, nhập Tên dịp nếu cần
+   rồi điền Hệ số nhu cầu cho khách du lịch, khách tiêu chuẩn và thương
+   nhân. Hệ số 1 giữ nguyên, 1,5 tăng 50%, 0,8 giảm 20%. Mỗi loại có
+   mức gợi ý có thể chỉnh. Bấm Lưu ngày. Để sửa lại, bấm vào ô đó lần
+   nữa. Bấm Khôi phục theo lịch để lấy lại loại ngày và hệ số tự động.
+   Với dịp kéo dài nhiều ngày, bấm Đặt sự kiện theo khoảng ngày bên dưới
+   lịch. Chọn Từ ngày, Đến ngày, nhập tên và hệ số một lần rồi bấm Áp dụng
+   cho khoảng ngày. Thiết lập mới áp dụng cho cả ngày đầu và ngày cuối
+   và thay thế thiết lập cũ trong khoảng. Vẫn có thể sửa từng ô sau đó.
+
+3. Ở nhóm 30 ngày trước, chỉnh các ngày cần thiết rồi bấm Sinh dữ liệu
+   30 ngày trước. Web tạo lượt hỏi đặt cho 30 ngày lưu trú giả lập.
+   Bấm Tải CSV lịch sử nếu muốn xem file. CSV giữ ngày hỏi và ngày lưu
+   trú cụ thể. Ô Seed lịch sử cho phép đổi seed nếu cần. Nếu chỉnh một
+   ngày lịch sử hoặc đổi seed sau khi sinh file, hãy sinh lại.
+
+4. Ở nhóm 30 ngày tiếp theo, ví dụ bấm Ngày 5, chọn Sự kiện, đặt tên
+   Hội nghị, nhập lần lượt 1, 1 và 1,5 rồi lưu. Khi dùng lịch sắp tới,
+   mức kỳ vọng của thương nhân ngày mở bán 5 tăng 50% so với nhu cầu nền.
+
+5. Ở Nguồn dữ liệu khách, chọn một trong bốn tổ hợp:
+   • Tắt cả hai: sinh khách theo cấu hình mặc định.
+   • Chỉ bật Dùng dữ liệu 30 ngày trước: lấy nhu cầu nền từ lượt hỏi lịch sử.
+   • Chỉ bật Dùng lịch 30 ngày tiếp theo: điều chỉnh nhu cầu mặc định theo lịch.
+   • Bật cả hai: điều chỉnh nhu cầu nền từ lịch sử theo lịch sắp tới.
+   Có thể mở Xem nhu cầu kỳ vọng theo ngày để đối chiếu trước khi áp dụng.
+
+6. Bấm Sinh dữ liệu và áp dụng. Web về Tổng quan và đưa tiến độ về ngày 0.
+   Bấm Chạy đủ 30 ngày hoặc Step ngày. Trong mỗi lượt, A/B/C dùng chung
+   tập khách. Monte Carlo và So sánh chính sách dùng cùng cấu hình nguồn
+   rồi sinh khách theo từng seed. Ngày 1–30 sắp tới là các ngày mở bán
+   cho cùng một đêm lưu trú.
+
+Lịch sử và lịch đang nhập được giữ khi chuyển mục trong cùng phiên. Khi tải
+lại trang, tạo lại lịch sử và khai báo lại sự kiện.

@@ -156,10 +156,10 @@ export class CustomerGenerator {
 
     for (let segmentIndex = 0; segmentIndex < 3; segmentIndex += 1) {
       const segment = segments[segmentIndex];
-      const mean =
-        this.config.demands[segmentIndex] *
-        this.config.intensity *
-        bookingWeights[segmentIndex][dayIndex];
+      const dailyMean = this.config.demandProfile?.dailyMeans[dayIndex]?.[segmentIndex];
+      const mean = dailyMean === undefined
+        ? this.config.demands[segmentIndex] * this.config.intensity * bookingWeights[segmentIndex][dayIndex]
+        : dailyMean * this.config.intensity;
 
       const count =
         this.config.distribution === 'poisson'
